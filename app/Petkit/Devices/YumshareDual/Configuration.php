@@ -1294,7 +1294,10 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
 
         $manualPortions = (int) $feedEvents->filter(function ($h) {
             $p = $h->parameters ?? [];
-            return (int) ($p['manual'] ?? 0) === 1;
+            // 'manual' === 1: physical button pressed on feeder
+            // 'r_...': realtime / on-demand feed triggered from Home Assistant or App
+            // 'n_...': scheduled plan meal triggered by internal timer
+            return (int) ($p['manual'] ?? 0) === 1 || str_starts_with((string) ($p['id'] ?? ''), 'r_');
         })->sum(fn ($h) => (int) ($h->parameters['real_amount1'] ?? $h->parameters['real_amount'] ?? 0) + (int) ($h->parameters['real_amount2'] ?? 0));
 
         // 4. Planned schedule
