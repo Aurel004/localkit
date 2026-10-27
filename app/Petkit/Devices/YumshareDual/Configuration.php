@@ -1268,7 +1268,12 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             ->get();
 
         $mealsToday = $eatEvents->count();
-        $eatingTimeToday = (int) $eatEvents->sum(fn ($h) => $h->eventDuration());
+        $eatingTimeToday = (int) $eatEvents->sum(function ($h) {
+            $duration = $h->eventDuration();
+            // A realistic cat meal duration is between 5s and 1800s (30m).
+            // Guard against corrupted updated_at timestamps or open unclosed events.
+            return ($duration > 0 && $duration <= 1800) ? $duration : 0;
+        });
 
         // 2. Cat visits (DETECT events)
         $visitsToday = History::where('device_id', $device->id)
@@ -1289,7 +1294,7 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
 
         $manualPortions = (int) $feedEvents->filter(function ($h) {
             $p = $h->parameters ?? [];
-            return (int) ($p['manual'] ?? 0) === 1 || str_starts_with((string) ($p['id'] ?? ''), 'r_');
+            return (int) ($p['manual'] ?? 0) === 1;
         })->sum(fn ($h) => (int) ($h->parameters['real_amount1'] ?? $h->parameters['real_amount'] ?? 0) + (int) ($h->parameters['real_amount2'] ?? 0));
 
         // 4. Planned schedule

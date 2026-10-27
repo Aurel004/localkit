@@ -94,7 +94,8 @@ class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
                 $this->reply($topic, $message);
             },
             sprintf('/sys/%s/%s/thing/event/eat_over/post', $this->device->productKey(), $this->device->deviceName()) => function (DeviceModel $device, string $topic, stdClass|null $message) {
-                $this->mergeHistory($message?->params?->event_id, $message?->params?->content);
+                $endTimestamp = !empty($message?->params?->timestamp) ? (int)$message->params->timestamp : null;
+                $this->mergeHistory($message?->params?->event_id, $message?->params?->content, null, $endTimestamp);
                 EventPublisher::publish($device, 'eat_over');
 
                 $this->parseState($device, $message, DeviceStates::IDLE->value, function () use ($device) {
@@ -250,7 +251,7 @@ class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
         return null;
     }
 
-    private function mergeHistory(?string $messageId, ?string $rawContent, ?string $type = null): void
+    private function mergeHistory(?string $messageId, ?string $rawContent, ?string $type = null, ?int $eventEnd = null): void
     {
         if ($messageId === null) {
             return;
@@ -288,6 +289,10 @@ class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
         }
 
         $mergedParams = array_merge((array) ($history->parameters ?? []), (array) $content);
+        if ($eventEnd !== null && !empty($mergedParams['start_time'])) {
+            $mergedParams['event_start'] = (int) $mergedParams['start_time'];
+            $mergedParams['event_end'] = $eventEnd;
+        }
 
         $history->update([
             'parameters' => $mergedParams,
