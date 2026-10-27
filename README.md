@@ -22,7 +22,7 @@ As an internal MQTT broker, [localkit-broker](https://github.com/dwyschka/localk
 - **Petkit Fresh Element 3** (`d3`)
 - **Petkit Fresh Element Solo** (`d4`)
 - **Petkit Yumshare Solo** (`d4h`)
-- **Petkit Yumshare Dual** (`d4sh`)
+- **Petkit Yumshare Dual** (`d4sh`) — [Documentation détaillée](docs/yumshare_dual.md)
 
 **Water fountains**
 - **Petkit Eversweet Ultra** (`w7h`)
@@ -65,6 +65,9 @@ implementation here is our own.
 
 Localkit integrates with Home Assistant over MQTT, automatically exposing your Petkit devices as entities via MQTT discovery. See the [Home Assistant integration guide](https://localkit.io/overview/homeassistant.html) for setup details.
 
-## Documentation
+## Documentation & Guides Techniques
 
-For full setup instructions, the complete list of exposed entities, and detailed documentation, visit [localkit.io](https://localkit.io).
+- **[Petkit YumShare Dual (`d4sh`)](docs/yumshare_dual.md)** : Fonctionnalités double trémie, caméra/RTSP, flux d'activité en direct et statistiques journalières dans Home Assistant.
+- **[Protocole MQTT & Cycle de Vie des Événements](docs/protocol_mqtt.md)** : Spécifications Alink / Alibaba Cloud Link IoT, conformité stricte des acquittements (ACK), gestion de la file Flash FIFO et machine à états de distribution / repas.
+- **[Stockage Objet S3 Local (Garage / MinIO)](s3.md)** : Configuration du stockage persistant local pour les photos de distribution et extraits vidéo de repas.
+- **Documentation officielle du projet** : Guides complets sur [localkit.io](https://localkit.io).
