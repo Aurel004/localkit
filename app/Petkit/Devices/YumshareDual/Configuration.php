@@ -9,7 +9,11 @@ use App\Homeassistant\HASwitch;
 use App\Homeassistant\Interfaces\Snapshot;
 use App\Homeassistant\Interfaces\Video;
 use App\Homeassistant\Number;
+use App\Homeassistant\BinarySensor;
 use App\Homeassistant\Sensor;
+use App\Models\History;
+use App\Petkit\DeviceStates;
+use Carbon\Carbon;
 use App\Models\BluetoothDevice;
 use App\Management\Rtsp;
 use App\Models\Device;
@@ -127,6 +131,116 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
      * generic/ffmpeg camera. Derived from $ipAddress in toArray(), never stored
      * by the device.
      */
+    // Live eating binary sensor
+    #[BinarySensor(
+        technicalName: 'is_eating',
+        name: 'Is Eating',
+        icon: 'mdi:cat',
+        deviceClass: 'occupancy',
+        valueTemplate: '{{ "ON" if value_json.states.isEating else "OFF" }}',
+        payloadOn: 'ON',
+        payloadOff: 'OFF'
+    )]
+    public bool $isEating;
+
+    // Daily statistics
+    #[Sensor(
+        technicalName: 'feedings_today',
+        name: 'Feedings Today',
+        icon: 'mdi:bowl-mix',
+        stateClass: 'total_increasing',
+        unitOfMeasurement: 'feedings',
+        valueTemplate: '{{ value_json.states.feedingsToday }}',
+        entityCategory: 'diagnostic'
+    )]
+    public ?int $feedingsToday;
+
+    #[Sensor(
+        technicalName: 'meals_today',
+        name: 'Meals Today',
+        icon: 'mdi:food-drumstick',
+        stateClass: 'total_increasing',
+        unitOfMeasurement: 'meals',
+        valueTemplate: '{{ value_json.states.mealsToday }}',
+        entityCategory: 'diagnostic'
+    )]
+    public ?int $mealsToday;
+
+    #[Sensor(
+        technicalName: 'visits_today',
+        name: 'Visits Today',
+        icon: 'mdi:cat',
+        stateClass: 'total_increasing',
+        unitOfMeasurement: 'visits',
+        valueTemplate: '{{ value_json.states.visitsToday }}',
+        entityCategory: 'diagnostic'
+    )]
+    public ?int $visitsToday;
+
+    #[Sensor(
+        technicalName: 'portions_hopper_1_today',
+        name: 'Portions Dispensed Hopper 1 Today',
+        icon: 'mdi:numeric-1-box-multiple',
+        stateClass: 'total_increasing',
+        unitOfMeasurement: 'portions',
+        valueTemplate: '{{ value_json.states.portionsHopper1Today }}',
+        entityCategory: 'diagnostic'
+    )]
+    public ?int $portionsHopper1Today;
+
+    #[Sensor(
+        technicalName: 'portions_hopper_2_today',
+        name: 'Portions Dispensed Hopper 2 Today',
+        icon: 'mdi:numeric-2-box-multiple',
+        stateClass: 'total_increasing',
+        unitOfMeasurement: 'portions',
+        valueTemplate: '{{ value_json.states.portionsHopper2Today }}',
+        entityCategory: 'diagnostic'
+    )]
+    public ?int $portionsHopper2Today;
+
+    #[Sensor(
+        technicalName: 'manual_portions_today',
+        name: 'Manual Portions Today',
+        icon: 'mdi:hand-pointing-right',
+        stateClass: 'total_increasing',
+        unitOfMeasurement: 'portions',
+        valueTemplate: '{{ value_json.states.manualPortionsToday }}',
+        entityCategory: 'diagnostic'
+    )]
+    public ?int $manualPortionsToday;
+
+    #[Sensor(
+        technicalName: 'planned_meals_today',
+        name: 'Planned Meals Today',
+        icon: 'mdi:calendar-clock',
+        unitOfMeasurement: 'meals',
+        valueTemplate: '{{ value_json.states.plannedMealsToday }}',
+        entityCategory: 'diagnostic'
+    )]
+    public ?int $plannedMealsToday;
+
+    #[Sensor(
+        technicalName: 'planned_portions_today',
+        name: 'Planned Portions Today',
+        icon: 'mdi:counter',
+        unitOfMeasurement: 'portions',
+        valueTemplate: '{{ value_json.states.plannedPortionsToday }}',
+        entityCategory: 'diagnostic'
+    )]
+    public ?int $plannedPortionsToday;
+
+    #[Sensor(
+        technicalName: 'eating_time_today',
+        name: 'Eating Time Today',
+        icon: 'mdi:timer-outline',
+        stateClass: 'total_increasing',
+        unitOfMeasurement: 's',
+        valueTemplate: '{{ value_json.states.eatingTimeToday }}',
+        entityCategory: 'diagnostic'
+    )]
+    public ?int $eatingTimeToday;
+
     #[Sensor(
         technicalName: 'stream_url',
         name: 'Stream URL',
@@ -663,6 +777,16 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'bowl' => ['integer'],
             'lastSnapshot' => ['nullable', 'string'],
             'stream' => ['nullable', 'string'],
+            'isEating' => ['bool'],
+            'feedingsToday' => ['nullable', 'integer'],
+            'mealsToday' => ['nullable', 'integer'],
+            'visitsToday' => ['nullable', 'integer'],
+            'portionsHopper1Today' => ['nullable', 'integer'],
+            'portionsHopper2Today' => ['nullable', 'integer'],
+            'manualPortionsToday' => ['nullable', 'integer'],
+            'plannedMealsToday' => ['nullable', 'integer'],
+            'plannedPortionsToday' => ['nullable', 'integer'],
+            'eatingTimeToday' => ['nullable', 'integer'],
 
             // Settings
             'foodWarn' => ['bool'],
@@ -745,6 +869,16 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'bowl' => -1,
             'lastSnapshot' => null,
             'stream' => null,
+            'isEating' => false,
+            'feedingsToday' => 0,
+            'mealsToday' => 0,
+            'visitsToday' => 0,
+            'portionsHopper1Today' => 0,
+            'portionsHopper2Today' => 0,
+            'manualPortionsToday' => 0,
+            'plannedMealsToday' => 0,
+            'plannedPortionsToday' => 0,
+            'eatingTimeToday' => 0,
 
             // Settings
             'foodWarn' => false,
@@ -829,6 +963,16 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'bowl' => new IntegerCast(),
             'lastSnapshot' => new StringCast(),
             'stream' => new StringCast(),
+            'isEating' => new BooleanCast(),
+            'feedingsToday' => new IntegerCast(),
+            'mealsToday' => new IntegerCast(),
+            'visitsToday' => new IntegerCast(),
+            'portionsHopper1Today' => new IntegerCast(),
+            'portionsHopper2Today' => new IntegerCast(),
+            'manualPortionsToday' => new IntegerCast(),
+            'plannedMealsToday' => new IntegerCast(),
+            'plannedPortionsToday' => new IntegerCast(),
+            'eatingTimeToday' => new IntegerCast(),
 
             // Settings
             'foodWarn' => new BooleanCast(),
@@ -912,6 +1056,13 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             $data['bowl'] = $states['bowl'] ?? null;
             $data['lastSnapshot'] = $states['lastSnapshot'] ?? null;
             $data['stream'] = $states['stream'] ?? null;
+            $data['isEating'] = $states['isEating'] ?? false;
+        }
+
+        // Dynamically compute daily statistics
+        $dailyStats = self::computeDailyStats($device);
+        foreach ($dailyStats as $key => $val) {
+            $data[$key] = $val;
         }
 
         // Load settings
@@ -1003,6 +1154,16 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
                 'bowl' => $this->bowl,
                 'lastSnapshot' => $this->lastSnapshot,
                 'stream' => $this->streamUrl(),
+                'isEating' => $this->isEating,
+                'feedingsToday' => $this->feedingsToday,
+                'mealsToday' => $this->mealsToday,
+                'visitsToday' => $this->visitsToday,
+                'portionsHopper1Today' => $this->portionsHopper1Today,
+                'portionsHopper2Today' => $this->portionsHopper2Today,
+                'manualPortionsToday' => $this->manualPortionsToday,
+                'plannedMealsToday' => $this->plannedMealsToday,
+                'plannedPortionsToday' => $this->plannedPortionsToday,
+                'eatingTimeToday' => $this->eatingTimeToday,
             ],
             'settings' => [
                 'shareOpen' => $this->shareOpen,
@@ -1093,5 +1254,74 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         }
 
         return app(Rtsp::class)->urlForIp($this->ipAddress);
+    }
+
+    public static function computeDailyStats(Device|BluetoothDevice $device): array
+    {
+        $tz = config('app.timezone') ?: 'Europe/Paris';
+        $startOfDay = Carbon::today($tz);
+
+        // 1. Cat meals (EAT events)
+        $eatEvents = History::where('device_id', $device->id)
+            ->where('type', 'EAT')
+            ->where('created_at', '>=', $startOfDay)
+            ->get();
+
+        $mealsToday = $eatEvents->count();
+        $eatingTimeToday = (int) $eatEvents->sum(fn ($h) => $h->eventDuration());
+
+        // 2. Cat visits (DETECT events)
+        $visitsToday = History::where('device_id', $device->id)
+            ->where('type', 'DETECT')
+            ->where('created_at', '>=', $startOfDay)
+            ->count();
+
+        // 3. Feedings (WORKING events)
+        $feedEvents = History::where('device_id', $device->id)
+            ->where('type', DeviceStates::WORKING->value)
+            ->where('created_at', '>=', $startOfDay)
+            ->get();
+
+        $feedingsToday = $feedEvents->count();
+
+        $portions1 = (int) $feedEvents->sum(fn ($h) => (int) ($h->parameters['real_amount1'] ?? $h->parameters['real_amount'] ?? 0));
+        $portions2 = (int) $feedEvents->sum(fn ($h) => (int) ($h->parameters['real_amount2'] ?? 0));
+
+        $manualPortions = (int) $feedEvents->filter(function ($h) {
+            $p = $h->parameters ?? [];
+            return (int) ($p['manual'] ?? 0) === 1 || str_starts_with((string) ($p['id'] ?? ''), 'r_');
+        })->sum(fn ($h) => (int) ($h->parameters['real_amount1'] ?? $h->parameters['real_amount'] ?? 0) + (int) ($h->parameters['real_amount2'] ?? 0));
+
+        // 4. Planned schedule
+        $plannedMeals = 0;
+        $plannedPortions = 0;
+        try {
+            $isoWeekday = Carbon::today($tz)->isoWeekday();
+            $key = $device->configuration['schedule']['key'] ?? 'default';
+            $schedules = $device->scheduleGroups($key);
+            foreach ($schedules as $group) {
+                $days = explode(',', (string) ($group['re'] ?? ''));
+                if (in_array((string) $isoWeekday, $days, true)) {
+                    $items = $group['it'] ?? [];
+                    $plannedMeals += count($items);
+                    foreach ($items as $item) {
+                        $plannedPortions += (int) ($item['a1'] ?? $item['a'] ?? 0) + (int) ($item['a2'] ?? 0);
+                    }
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        return [
+            'feedingsToday' => $feedingsToday,
+            'mealsToday' => $mealsToday,
+            'visitsToday' => $visitsToday,
+            'portionsHopper1Today' => $portions1,
+            'portionsHopper2Today' => $portions2,
+            'manualPortionsToday' => $manualPortions,
+            'plannedMealsToday' => $plannedMeals,
+            'plannedPortionsToday' => $plannedPortions,
+            'eatingTimeToday' => $eatingTimeToday,
+        ];
     }
 }
