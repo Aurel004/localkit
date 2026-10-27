@@ -2,28 +2,37 @@
 
 namespace App\Http\Resources\MQTT;
 
-//{"code":200,"data":{},"id":"107","message":"success","method":"thing.event.work_start.post","version":"1.0"}
 use stdClass;
-use App\Helpers\MQTTTopic;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class SuccessResource extends JsonResource
 {
+    protected ?string $explicitMethod = null;
+
+    public function __construct($resource, ?string $method = null)
+    {
+        parent::__construct($resource);
+        $this->explicitMethod = $method;
+    }
+
+    public static function make(...$parameters)
+    {
+        return new static(...$parameters);
+    }
 
     public function toArray(Request $request): array
     {
         $data = new stdClass();
+        $id = $this->resource->id ?? null;
+
         return [
             'code' => 200,
             'data' => $data,
-            'id' => $this->resource->id ?? null,
-            'message' => "success",
-            'method' => $this->resource->method ?? null,
-            'version' => "1.0.0"
+            'id' => is_scalar($id) ? (string) $id : '',
+            'message' => 'success',
+            'method' => $this->explicitMethod ?? $this->resource->method ?? null,
+            'version' => '1.0',
         ];
     }
-
 }
-
-
