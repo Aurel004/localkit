@@ -1289,8 +1289,22 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
 
         $feedingsToday = $feedEvents->count();
 
-        $portions1 = (int) $feedEvents->sum(fn ($h) => (int) ($h->parameters['real_amount1'] ?? $h->parameters['real_amount'] ?? 0));
-        $portions2 = (int) $feedEvents->sum(fn ($h) => (int) ($h->parameters['real_amount2'] ?? 0));
+        $portions1 = (int) $feedEvents->sum(function ($h) {
+            $p = $h->parameters ?? [];
+            if (isset($p['real_amount1'])) {
+                return (int) $p['real_amount1'];
+            }
+            if (isset($p['real_amount'])) {
+                return (int) $p['real_amount'];
+            }
+            // Fallback: any recorded feed dispensed at least 1 portion from hopper 1
+            return 1;
+        });
+
+        $portions2 = (int) $feedEvents->sum(function ($h) {
+            $p = $h->parameters ?? [];
+            return (int) ($p['real_amount2'] ?? 0);
+        });
 
         $manualPortions = (int) $feedEvents->filter(function ($h) {
             $p = $h->parameters ?? [];
@@ -1298,7 +1312,12 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             // 'r_...': realtime / on-demand feed triggered from Home Assistant or App
             // 'n_...': scheduled plan meal triggered by internal timer
             return (int) ($p['manual'] ?? 0) === 1 || str_starts_with((string) ($p['id'] ?? ''), 'r_');
-        })->sum(fn ($h) => (int) ($h->parameters['real_amount1'] ?? $h->parameters['real_amount'] ?? 0) + (int) ($h->parameters['real_amount2'] ?? 0));
+        })->sum(function ($h) {
+            $p = $h->parameters ?? [];
+            $amount1 = isset($p['real_amount1']) ? (int) $p['real_amount1'] : (isset($p['real_amount']) ? (int) $p['real_amount'] : 1);
+            $amount2 = (int) ($p['real_amount2'] ?? 0);
+            return $amount1 + $amount2;
+        });
 
         // 4. Planned schedule
         $plannedMeals = 0;
