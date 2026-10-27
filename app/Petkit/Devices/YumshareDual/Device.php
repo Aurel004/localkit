@@ -160,14 +160,25 @@ class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
                 $this->reply($topic, $message);
             },
             sprintf('/sys/%s/%s/thing/event/feed_start/post', $this->device->productKey(), $this->device->deviceName()) => function (DeviceModel $device, string $topic, stdClass|null $message) {
-                $content = json_decode($message?->params?->content, false);
+                $content = json_decode($message?->params?->content ?? '{}', true) ?? [];
+                $eventId = $message?->params?->event_id ?? null;
 
-                History::updateOrCreate(['messageId' => $message->params->event_id], [
-                    'pet_id' => null,
-                    'type' => DeviceStates::WORKING->value,
-                    'parameters' => $content,
-                    'device_id' => $device->id
-                ]);
+                if ($eventId) {
+                    $history = History::where('messageId', $eventId)->first();
+                    if ($history) {
+                        $history->update([
+                            'parameters' => array_merge((array) ($history->parameters ?? []), (array) $content),
+                        ]);
+                    } else {
+                        History::create([
+                            'messageId' => $eventId,
+                            'pet_id' => null,
+                            'type' => DeviceStates::WORKING->value,
+                            'parameters' => $content,
+                            'device_id' => $device->id,
+                        ]);
+                    }
+                }
 
                 $this->parseState($device, $message, DeviceStates::WORKING->value);
                 $this->reply($topic, $message);
@@ -263,6 +274,21 @@ class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
         if ($history === null && isset($content['start_time'])) {
             $startMessageId = $this->device->petkit_id . '_' . $content['start_time'];
             $history = History::where('messageId', $startMessageId)->first();
+        }
+
+        if ($history === null && !empty($content['id'])) {
+            $history = History::where('device_id', $this->device->id)
+                ->where('parameters->id', $content['id'])
+                ->latest()
+                ->first();
+        }
+
+        if ($history === null && $type === DeviceStates::WORKING->value) {
+            $history = History::where('device_id', $this->device->id)
+                ->where('type', DeviceStates::WORKING->value)
+                ->where('created_at', '>=', now()->subMinutes(3))
+                ->latest()
+                ->first();
         }
 
         $explicitPetId = !empty($content['pet_id']) ? (int) $content['pet_id'] : null;
