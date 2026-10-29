@@ -42,7 +42,7 @@ class BaseEntity
         }
 
         $config = [
-            'name' => $this->name,
+            'name' => __($this->name),
             'state_topic' => '~',
             'unique_id' => $uniqueId,
             'dev' => [
