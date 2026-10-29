@@ -9,6 +9,7 @@ use App\Homeassistant\HASwitch;
 use App\Homeassistant\Interfaces\Snapshot;
 use App\Homeassistant\Interfaces\Video;
 use App\Homeassistant\Number;
+use App\Homeassistant\BinarySensor;
 use App\Homeassistant\Sensor;
 use App\Models\BluetoothDevice;
 use App\Management\Rtsp;
@@ -119,6 +120,28 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
     // Not published to Home Assistant - the DTO still needs the property for
     // TakeSnapshot's bookkeeping and the Filament admin preview (UI.php).
     public ?string $lastSnapshot;
+
+    #[BinarySensor(
+        technicalName: 'food_level_hopper_1',
+        name: 'Food Level Hopper 1',
+        icon: 'mdi:tray-alert',
+        deviceClass: 'problem',
+        valueTemplate: '{{ "ON" if value_json.states.foodLevelHopper1 is defined and value_json.states.foodLevelHopper1 == 0 else "OFF" }}',
+        payloadOn: 'ON',
+        payloadOff: 'OFF'
+    )]
+    public ?int $foodLevelHopper1;
+
+    #[BinarySensor(
+        technicalName: 'food_level_hopper_2',
+        name: 'Food Level Hopper 2',
+        icon: 'mdi:tray-alert',
+        deviceClass: 'problem',
+        valueTemplate: '{{ "ON" if value_json.states.foodLevelHopper2 is defined and value_json.states.foodLevelHopper2 == 0 else "OFF" }}',
+        payloadOn: 'ON',
+        payloadOff: 'OFF'
+    )]
+    public ?int $foodLevelHopper2;
 
     /*
      * The device's RTSP URL. Home Assistant's MQTT discovery has no RTSP
@@ -646,6 +669,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'bowl' => ['integer'],
             'lastSnapshot' => ['nullable', 'string'],
             'stream' => ['nullable', 'string'],
+            'foodLevelHopper1' => ['nullable', 'integer'],
+            'foodLevelHopper2' => ['nullable', 'integer'],
 
             // Settings
             'foodWarn' => ['bool'],
@@ -728,6 +753,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'bowl' => -1,
             'lastSnapshot' => null,
             'stream' => null,
+            'foodLevelHopper1' => 1,
+            'foodLevelHopper2' => 1,
 
             // Settings
             'foodWarn' => false,
@@ -812,6 +839,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'bowl' => new IntegerCast(),
             'lastSnapshot' => new StringCast(),
             'stream' => new StringCast(),
+            'foodLevelHopper1' => new IntegerCast(),
+            'foodLevelHopper2' => new IntegerCast(),
 
             // Settings
             'foodWarn' => new BooleanCast(),
@@ -895,6 +924,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             $data['bowl'] = $states['bowl'] ?? null;
             $data['lastSnapshot'] = $states['lastSnapshot'] ?? null;
             $data['stream'] = $states['stream'] ?? null;
+            $data['foodLevelHopper1'] = $states['foodLevelHopper1'] ?? 1;
+            $data['foodLevelHopper2'] = $states['foodLevelHopper2'] ?? 1;
         }
 
         // Load settings
@@ -986,6 +1017,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
                 'bowl' => $this->bowl,
                 'lastSnapshot' => $this->lastSnapshot,
                 'stream' => $this->streamUrl(),
+                'foodLevelHopper1' => $this->foodLevelHopper1,
+                'foodLevelHopper2' => $this->foodLevelHopper2,
             ],
             'settings' => [
                 'shareOpen' => $this->shareOpen,
