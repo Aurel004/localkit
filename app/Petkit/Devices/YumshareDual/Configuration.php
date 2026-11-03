@@ -226,7 +226,7 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         stateOff: false,
         entityCategory: 'config'
     )]
-    public bool $scheduleEnabled;
+    public bool $schedule_enabled;
 
     #[Sensor(
         technicalName: 'feeding_schedule',
@@ -1046,7 +1046,7 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
 
                 // Schedule
                 'CTime' => $this->CTime,
-                'schedule_enabled' => $this->scheduleEnabled,
+                'schedule_enabled' => $this->schedule_enabled,
 
                 // Camera settings
                 'camera' => $this->camera,
