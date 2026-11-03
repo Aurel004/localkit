@@ -95,12 +95,16 @@ class EditDevice extends EditRecord
         // Process custom feed sound upload or removal
         if (isset($data['configuration']) && is_array($data['configuration'])) {
             $uploadedPath = $data['configuration']['feed_sound_file'] ?? null;
+            if (is_array($uploadedPath)) {
+                $uploadedPath = array_values($uploadedPath)[0] ?? null;
+            }
             $existingPath = $record->configuration['feed_sound_file'] ?? null;
 
             if (!empty($uploadedPath) && $uploadedPath !== $existingPath) {
                 $soundMeta = \App\Services\FeedSoundService::processUpload($record, $uploadedPath);
                 if ($soundMeta !== null) {
                     $data['configuration']['feed_sound'] = $soundMeta;
+                    $data['configuration']['feed_sound_file'] = $uploadedPath;
                     $data['configuration']['settings']['selectedSound'] = $soundMeta['id'];
                     $data['configuration']['settings']['soundEnable'] = true;
                 }
@@ -109,6 +113,9 @@ class EditDevice extends EditRecord
                 $data['configuration']['feed_sound'] = null;
                 $data['configuration']['feed_sound_file'] = null;
                 $data['configuration']['settings']['selectedSound'] = -1;
+            } else {
+                $data['configuration']['feed_sound'] = $record->configuration['feed_sound'] ?? null;
+                $data['configuration']['feed_sound_file'] = $existingPath;
             }
         }
 
