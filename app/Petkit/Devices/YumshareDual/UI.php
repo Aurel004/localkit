@@ -25,6 +25,11 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
 use PhpMqtt\Client\Facades\MQTT;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Actions;
+use Filament\Forms\Components\Actions\Action;
+use Filament\Notifications\Notification;
+use App\Models\Device;
 use Filament\Forms;
 use Filament\Forms\Form;
 use App\Filament\Forms\Components\MinutesTimePicker;
@@ -352,6 +357,45 @@ class UI
                 Toggle::make('configuration.settings.systemSoundEnable')->label('Voice Prompt'),
                 Toggle::make('configuration.settings.soundEnable')->label('Voice for Food Dispensing'),
                 Toggle::make('configuration.settings.feedSound')->label('Feed Completion Sound'),
+
+                FileUpload::make('configuration.feed_sound_file')
+                    ->label('Custom Food Dispensing Audio')
+                    ->helperText('Upload an audio recording (.mp3, .wav, .aac, .m4a, .ogg). Automatically converted to AAC 16kHz mono for the feeder.')
+                    ->disk('public')
+                    ->directory('sounds')
+                    ->visibility('public')
+                    ->acceptedFileTypes(['audio/*', 'video/mp4', 'audio/aac', 'audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/ogg', 'audio/x-m4a'])
+                    ->maxSize(10240)
+                    ->columnSpanFull(),
+
+                Placeholder::make('feed_sound_preview')
+                    ->label('Current Audio Preview')
+                    ->content(function (?Device $record) {
+                        $meta = $record?->configuration['feed_sound'] ?? null;
+                        if (!$meta || empty($meta['filename'])) {
+                            return 'No custom audio uploaded yet.';
+                        }
+                        $url = route('sound.feed', ['device' => $record->id, 'filename' => $meta['filename']]);
+                        return new HtmlString("<audio controls src='{$url}' style='width: 100%; height: 40px;'></audio>");
+                    })
+                    ->visible(fn (?Device $record) => !empty($record?->configuration['feed_sound']['filename']))
+                    ->columnSpanFull(),
+
+                Actions::make([
+                    Action::make('test_feeder_sound')
+                        ->label('Play on Feeder')
+                        ->icon('heroicon-o-speaker-wave')
+                        ->color('success')
+                        ->action(function (?Device $record) {
+                            if (!$record) return;
+                            $soundId = (int) ($record->configuration['feed_sound']['id'] ?? ($record->configuration['settings']['selectedSound'] ?? 1));
+                            if ($soundId <= 0) $soundId = 1;
+                            \App\Jobs\PlaySound::dispatchSync($record, $soundId);
+                            Notification::make()->title('Playback command sent to feeder')->success()->send();
+                        }),
+                ])
+                ->visible(fn (?Device $record) => !empty($record?->configuration['feed_sound']['filename']))
+                ->columnSpanFull(),
 
 
                 Fieldset::make('Do not Disturb')->columns(1)->schema([

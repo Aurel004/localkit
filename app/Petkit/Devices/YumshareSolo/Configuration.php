@@ -579,6 +579,17 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
     )]
     private $actionFeed = 1;
 
+    #[Button(
+        technicalName: 'action_play_sound',
+        name: 'Test Voice Recording',
+        commandTopic: 'action/start',
+        icon: 'mdi:volume-high',
+        commandTemplate: '{"action": "play_sound"}',
+        availabilityTemplate: 'online',
+        entityCategory: 'diagnostic'
+    )]
+    private $actionPlaySound = 1;
+
     #[Number(
         technicalName: 'desiccant_durability',
         name: 'Desiccant Durability',

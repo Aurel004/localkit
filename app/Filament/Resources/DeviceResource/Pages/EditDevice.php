@@ -40,6 +40,10 @@ class EditDevice extends EditRecord
             $data['configuration']['schedule'] = $record->scheduleGroups($key);
         }
 
+        if (isset($record->configuration['feed_sound_file'])) {
+            $data['configuration']['feed_sound_file'] = $record->configuration['feed_sound_file'];
+        }
+
         return $data;
     }
 
@@ -86,6 +90,26 @@ class EditDevice extends EditRecord
                 'key' => $key,
                 'checksum' => md5(json_encode($groups)),
             ];
+        }
+
+        // Process custom feed sound upload or removal
+        if (isset($data['configuration']) && is_array($data['configuration'])) {
+            $uploadedPath = $data['configuration']['feed_sound_file'] ?? null;
+            $existingPath = $record->configuration['feed_sound_file'] ?? null;
+
+            if (!empty($uploadedPath) && $uploadedPath !== $existingPath) {
+                $soundMeta = \App\Services\FeedSoundService::processUpload($record, $uploadedPath);
+                if ($soundMeta !== null) {
+                    $data['configuration']['feed_sound'] = $soundMeta;
+                    $data['configuration']['settings']['selectedSound'] = $soundMeta['id'];
+                    $data['configuration']['settings']['soundEnable'] = true;
+                }
+            } elseif (empty($uploadedPath) && !empty($existingPath)) {
+                \App\Services\FeedSoundService::cleanupOldFiles($record);
+                $data['configuration']['feed_sound'] = null;
+                $data['configuration']['feed_sound_file'] = null;
+                $data['configuration']['settings']['selectedSound'] = -1;
+            }
         }
 
         return $data;

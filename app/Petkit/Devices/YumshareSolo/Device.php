@@ -411,6 +411,13 @@ class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
             case 'snapshot':
                 $this->takeSnapshot($this->getDevice());
                 break;
+            case 'play_sound':
+                $soundId = (int) ($this->getDevice()->configuration['feed_sound']['id'] ?? ($this->getDevice()->configuration['settings']['selectedSound'] ?? 1));
+                if ($soundId <= 0) {
+                    $soundId = 1;
+                }
+                \App\Jobs\PlaySound::dispatchSync($this->getDevice(), $soundId);
+                break;
         }
     }
 

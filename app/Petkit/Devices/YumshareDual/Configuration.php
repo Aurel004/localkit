@@ -494,7 +494,13 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
     )]
     public int $volume;
 
-    // selected_sound not published to Home Assistant.
+    #[Sensor(
+        technicalName: 'selected_sound',
+        name: 'Selected Sound',
+        icon: 'mdi:music-note',
+        entityCategory: 'diagnostic',
+        valueTemplate: '{{ value_json.settings.selectedSound }}'
+    )]
     public int $selectedSound;
 
     // AI and other settings
@@ -596,6 +602,17 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         availabilityTemplate: 'online',
     )]
     private $actionFeed = 1;
+
+    #[Button(
+        technicalName: 'action_play_sound',
+        name: 'Test Voice Recording',
+        commandTopic: 'action/start',
+        icon: 'mdi:volume-high',
+        commandTemplate: '{"action": "play_sound"}',
+        availabilityTemplate: 'online',
+        entityCategory: 'diagnostic'
+    )]
+    private $actionPlaySound = 1;
 
     #[Number(
         technicalName: 'desiccant_durability',
