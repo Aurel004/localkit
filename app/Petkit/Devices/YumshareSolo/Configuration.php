@@ -668,6 +668,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'detectInterval' => ['integer', 'min:0'],
 
             // Sound
+            'feed_sound' => ['nullable', 'array'],
+            'feed_sound_file' => ['nullable', 'string'],
             'toneMode' => ['bool'],
             'toneMultiRange' => [],
             'soundEnable' => ['bool'],
@@ -742,6 +744,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'detectInterval' => 0,
 
             // Sound
+            'feed_sound' => null,
+            'feed_sound_file' => null,
             'toneMode' => false,
             'toneMultiRange' => [
                 'name' => 'toneMultiRange',

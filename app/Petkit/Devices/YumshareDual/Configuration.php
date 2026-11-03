@@ -700,6 +700,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'detectMultiRange' => ['array'],
 
             // Sound
+            'feed_sound' => ['nullable', 'array'],
+            'feed_sound_file' => ['nullable', 'string'],
             'toneMode' => ['bool'],
             'toneMultiRange' => ['array'],
             'soundEnable' => ['bool'],
@@ -782,6 +784,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'detectMultiRange' => [[0, 1440]],
 
             // Sound
+            'feed_sound' => null,
+            'feed_sound_file' => null,
             'toneMode' => false,
             'toneMultiRange' => [[1320, 360]],
             'soundEnable' => false,
