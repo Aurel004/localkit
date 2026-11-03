@@ -23,7 +23,9 @@ class Sensor extends BaseEntity
         public int $qos = 0,
         public bool $retain = false,
         public ?string $encoding = 'utf-8',
-        public int $expiryAfter = 0
+        public int $expiryAfter = 0,
+        public ?string $jsonAttributesTopic = null,
+        public ?string $jsonAttributesTemplate = null
     ) {
 
     }
