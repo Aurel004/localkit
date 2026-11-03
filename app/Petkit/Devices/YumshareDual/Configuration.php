@@ -62,6 +62,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
     )]
     public int $amount2;
     public array $schedule;
+    public ?array $feed_sound = null;
+    public ?string $feed_sound_file = null;
 
     // States
     #[Sensor(
@@ -871,6 +873,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'feedSound' => new BooleanCast(),
             'volume' => new IntegerCast(),
             'selectedSound' => new IntegerCast(),
+            'feed_sound' => new ArrayCast(),
+            'feed_sound_file' => new StringCast(),
 
             // AI and other
             'surplusControl' => new IntegerCast(),
@@ -979,6 +983,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         // Load schedule and capacity
         $data['schedule'] = $config['schedule'] ?? null;
         $data['capacity'] = $config['capacity'] ?? null;
+        $data['feed_sound'] = $config['feed_sound'] ?? null;
+        $data['feed_sound_file'] = $config['feed_sound_file'] ?? null;
 
         // Filter out null values to let defaults() handle missing data
         return new self(array_filter($data, fn($value) => $value !== null));
@@ -1064,6 +1070,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             ],
             'schedule' => $this->schedule,
             'capacity' => $this->capacity,
+            'feed_sound' => $this->feed_sound,
+            'feed_sound_file' => $this->feed_sound_file,
         ];
     }
 
