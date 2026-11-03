@@ -17,6 +17,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
     public function toArray(Request $request)
     {
         return [
+            "service_id" => 'play_sound',
             "method" => 'thing.service.play_sound',
             'id' => (string) time(),
             "params" => [

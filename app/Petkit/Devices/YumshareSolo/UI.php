@@ -336,21 +336,30 @@ class UI
                     ->columnSpanFull(),
 
                 Placeholder::make('feed_sound_preview')
-                    ->label('Current Audio Preview')
+                    ->label('Enregistrement vocal pour la distribution')
                     ->content(function (?Device $record) {
                         $meta = $record?->configuration['feed_sound'] ?? null;
-                        if (!$meta || empty($meta['filename'])) {
-                            return 'No custom audio uploaded yet.';
+                        if (!$meta || empty($meta['id'])) {
+                            return new HtmlString("<div style='padding: 10px; background-color: rgba(156, 163, 175, 0.1); border-radius: 8px; color: #6b7280;'><em>Aucun enregistrement vocal actif. T&eacute;l&eacute;versez un fichier audio ci-dessous pour le diffuser lors des repas.</em></div>");
                         }
-                        $url = route('sound.feed', ['device' => $record->id, 'filename' => $meta['filename']]);
-                        return new HtmlString("<audio controls src='{$url}' style='width: 100%; height: 40px;'></audio>");
+                        $fn = $meta['filename'] ?? ('feed_' . $meta['id'] . '.aac');
+                        $url = route('sound.feed', ['device' => $record->id, 'filename' => $fn]);
+                        $sizeKb = round(($meta['size'] ?? 0) / 1024, 1);
+                        return new HtmlString("
+                            <div style='display: flex; flex-direction: column; gap: 8px; padding: 12px; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 8px;'>
+                                <div style='display: flex; justify-content: space-between; align-items: center;'>
+                                    <span style='font-weight: 600; color: #15803d;'>&#128266; Enregistrement personnalis&eacute; actif ({$sizeKb} Ko)</span>
+                                    <span style='font-size: 0.85em; color: #166534;'>Format mat&eacute;riel : AAC 16kHz Mono</span>
+                                </div>
+                                <audio controls src='{$url}' style='width: 100%; height: 36px;'></audio>
+                            </div>
+                        ");
                     })
-                    ->visible(fn (?Device $record) => !empty($record?->configuration['feed_sound']['filename']))
                     ->columnSpanFull(),
 
                 Actions::make([
                     Action::make('test_feeder_sound')
-                        ->label('Play on Feeder')
+                        ->label('Tester sur le distributeur (Haut-parleur)')
                         ->icon('heroicon-o-speaker-wave')
                         ->color('success')
                         ->action(function (?Device $record) {
@@ -358,11 +367,18 @@ class UI
                             $soundId = (int) ($record->configuration['feed_sound']['id'] ?? ($record->configuration['settings']['selectedSound'] ?? 1));
                             if ($soundId <= 0) $soundId = 1;
                             \App\Jobs\PlaySound::dispatchSync($record, $soundId);
-                            Notification::make()->title('Playback command sent to feeder')->success()->send();
+                            Notification::make()->title('Ordre de lecture audio envoyé au distributeur')->success()->send();
                         }),
                 ])
-                ->visible(fn (?Device $record) => !empty($record?->configuration['feed_sound']['filename']))
+                ->visible(fn (?Device $record) => !empty($record?->configuration['feed_sound']['id']))
                 ->columnSpanFull(),
+
+                Toggle::make('configuration.remove_feed_sound')
+                    ->label("Supprimer l'enregistrement vocal existant")
+                    ->helperText("Cochez cette case puis cliquez sur Enregistrer pour effacer l'enregistrement personnalisé.")
+                    ->visible(fn (?Device $record) => !empty($record?->configuration['feed_sound']['id']))
+                    ->default(false)
+                    ->columnSpanFull(),
 
                 Fieldset::make('Do not Disturb')->columns(1)->schema([
                     Toggle::make('configuration.settings.toneMode')->label('Do not disturb'),

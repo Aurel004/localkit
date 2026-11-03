@@ -141,6 +141,15 @@ class UI
                     ->label('Feeding Photo')
                     ->helperText('Save a photo to the cloud when food is dispensed'),
 
+                TextInput::make('configuration.settings.rtsp_username')
+                    ->label('RTSP Username')
+                    ->helperText('RTSP Digest authentication username (from raptor.conf). Leave blank to use global default.'),
+
+                TextInput::make('configuration.settings.rtsp_password')
+                    ->label('RTSP Password')
+                    ->password()
+                    ->helperText('RTSP Digest authentication password (from raptor.conf). Avoid #, ;, quotes, or spaces.'),
+
                 Fieldset::make('Detection')->schema([
                     Toggle::make('configuration.settings.petDetection')
                         ->helperText('For events of pet visiting the feeder')
@@ -194,6 +203,11 @@ class UI
 
             Section::make('Feeding Plan')
                 ->schema([
+                    Toggle::make('configuration.settings.schedule_enabled')
+                        ->label('Feeding Schedule Enabled')
+                        ->helperText('Enable or disable automated schedule execution on the device')
+                        ->default(true),
+
                     Repeater::make('configuration.schedule')
                         ->schema([
                             CheckboxList::make('re')
@@ -369,21 +383,30 @@ class UI
                     ->columnSpanFull(),
 
                 Placeholder::make('feed_sound_preview')
-                    ->label('Current Audio Preview')
+                    ->label('Enregistrement vocal pour la distribution')
                     ->content(function (?Device $record) {
                         $meta = $record?->configuration['feed_sound'] ?? null;
-                        if (!$meta || empty($meta['filename'])) {
-                            return 'No custom audio uploaded yet.';
+                        if (!$meta || empty($meta['id'])) {
+                            return new HtmlString("<div style='padding: 10px; background-color: rgba(156, 163, 175, 0.1); border-radius: 8px; color: #6b7280;'><em>Aucun enregistrement vocal actif. T&eacute;l&eacute;versez un fichier audio ci-dessous pour le diffuser lors des repas.</em></div>");
                         }
-                        $url = route('sound.feed', ['device' => $record->id, 'filename' => $meta['filename']]);
-                        return new HtmlString("<audio controls src='{$url}' style='width: 100%; height: 40px;'></audio>");
+                        $fn = $meta['filename'] ?? ('feed_' . $meta['id'] . '.aac');
+                        $url = route('sound.feed', ['device' => $record->id, 'filename' => $fn]);
+                        $sizeKb = round(($meta['size'] ?? 0) / 1024, 1);
+                        return new HtmlString("
+                            <div style='display: flex; flex-direction: column; gap: 8px; padding: 12px; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 8px;'>
+                                <div style='display: flex; justify-content: space-between; align-items: center;'>
+                                    <span style='font-weight: 600; color: #15803d;'>&#128266; Enregistrement personnalis&eacute; actif ({$sizeKb} Ko)</span>
+                                    <span style='font-size: 0.85em; color: #166534;'>Format mat&eacute;riel : AAC 16kHz Mono</span>
+                                </div>
+                                <audio controls src='{$url}' style='width: 100%; height: 36px;'></audio>
+                            </div>
+                        ");
                     })
-                    ->visible(fn (?Device $record) => !empty($record?->configuration['feed_sound']['filename']))
                     ->columnSpanFull(),
 
                 Actions::make([
                     Action::make('test_feeder_sound')
-                        ->label('Play on Feeder')
+                        ->label('Tester sur le distributeur (Haut-parleur)')
                         ->icon('heroicon-o-speaker-wave')
                         ->color('success')
                         ->action(function (?Device $record) {
@@ -391,11 +414,18 @@ class UI
                             $soundId = (int) ($record->configuration['feed_sound']['id'] ?? ($record->configuration['settings']['selectedSound'] ?? 1));
                             if ($soundId <= 0) $soundId = 1;
                             \App\Jobs\PlaySound::dispatchSync($record, $soundId);
-                            Notification::make()->title('Playback command sent to feeder')->success()->send();
+                            Notification::make()->title('Ordre de lecture audio envoyé au distributeur')->success()->send();
                         }),
                 ])
-                ->visible(fn (?Device $record) => !empty($record?->configuration['feed_sound']['filename']))
+                ->visible(fn (?Device $record) => !empty($record?->configuration['feed_sound']['id']))
                 ->columnSpanFull(),
+
+                Toggle::make('configuration.remove_feed_sound')
+                    ->label("Supprimer l'enregistrement vocal existant")
+                    ->helperText("Cochez cette case puis cliquez sur Enregistrer pour effacer l'enregistrement personnalisé.")
+                    ->visible(fn (?Device $record) => !empty($record?->configuration['feed_sound']['id']))
+                    ->default(false)
+                    ->columnSpanFull(),
 
 
                 Fieldset::make('Do not Disturb')->columns(1)->schema([
@@ -458,32 +488,19 @@ class UI
                     ->label('Vomit Detection')
                     ->helperText('Uses AI behavior recognition to detect signs of vomiting in cats and sends an instant notification'),
 
-                // Same values as the Petkit app's D4SH "Surplus Food Control"
-                // screen (ControlFoodMainFragment): an on/off switch plus a
-                // Low/Moderate/Full level, defaulting to Moderate when enabled.
                 Select::make('configuration.settings.surplusControl')
                     ->label('Surplus Food Control')
-                    ->helperText('Pause scheduled feeds while the camera sees leftover food in the bowl')
+                    ->helperText('Pause feeding while surplus food remains in the bowl')
                     ->options([
                         0 => 'off',
                         1 => 'on',
-                    ])
-                    ->live()
-                    ->afterStateUpdated(function (Get $get, Set $set, $state) {
-                        if ((int) $state === 1 && !in_array((int) $get('configuration.settings.surplusStandard'), [1, 2, 3], true)) {
-                            $set('configuration.settings.surplusStandard', 2);
-                        }
-                    }),
+                    ]),
 
-                Select::make('configuration.settings.surplusStandard')
+                TextInput::make('configuration.settings.surplusStandard')
                     ->label('Surplus Food Standard')
-                    ->helperText('Scheduled feeds pause once the camera sees this much leftover food in the bowl: Low = 30 %, Moderate = 60 %, Full = 80 % (same as the Petkit cloud)')
-                    ->options([
-                        1 => 'Low',
-                        2 => 'Moderate',
-                        3 => 'Full',
-                    ])
-                    ->visible(fn (Get $get) => (int) $get('configuration.settings.surplusControl') === 1),
+                    ->helperText('Minimum amount of surplus food in the bowl before feeding pauses')
+                    ->numeric()
+                    ->minValue(0),
             ]),
 
             Section::make('Unknown')->columns(3)->schema([

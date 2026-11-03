@@ -92,28 +92,34 @@ class EditDevice extends EditRecord
             ];
         }
 
-        // Process custom feed sound upload or removal
+        // Process custom feed sound upload or removal safely
         if (isset($data['configuration']) && is_array($data['configuration'])) {
             $uploadedPath = $data['configuration']['feed_sound_file'] ?? null;
             if (is_array($uploadedPath)) {
                 $uploadedPath = array_values($uploadedPath)[0] ?? null;
             }
             $existingPath = $record->configuration['feed_sound_file'] ?? null;
+            $removeSound = (bool) ($data['configuration']['remove_feed_sound'] ?? false);
 
-            if (!empty($uploadedPath) && $uploadedPath !== $existingPath) {
+            if ($removeSound) {
+                \App\Services\FeedSoundService::cleanupOldFiles($record);
+                $data['configuration']['feed_sound'] = null;
+                $data['configuration']['feed_sound_file'] = null;
+                $data['configuration']['settings']['selectedSound'] = -1;
+                unset($data['configuration']['remove_feed_sound']);
+            } elseif (!empty($uploadedPath) && $uploadedPath !== $existingPath && !str_starts_with((string)$uploadedPath, 'sounds/feed_')) {
                 $soundMeta = \App\Services\FeedSoundService::processUpload($record, $uploadedPath);
                 if ($soundMeta !== null) {
                     $data['configuration']['feed_sound'] = $soundMeta;
                     $data['configuration']['feed_sound_file'] = $uploadedPath;
                     $data['configuration']['settings']['selectedSound'] = $soundMeta['id'];
                     $data['configuration']['settings']['soundEnable'] = true;
+                } else {
+                    $data['configuration']['feed_sound'] = $record->configuration['feed_sound'] ?? null;
+                    $data['configuration']['feed_sound_file'] = $existingPath;
                 }
-            } elseif (empty($uploadedPath) && !empty($existingPath)) {
-                \App\Services\FeedSoundService::cleanupOldFiles($record);
-                $data['configuration']['feed_sound'] = null;
-                $data['configuration']['feed_sound_file'] = null;
-                $data['configuration']['settings']['selectedSound'] = -1;
             } else {
+                // Always preserve existing sound configuration unless explicitly deleted
                 $data['configuration']['feed_sound'] = $record->configuration['feed_sound'] ?? null;
                 $data['configuration']['feed_sound_file'] = $existingPath;
             }
