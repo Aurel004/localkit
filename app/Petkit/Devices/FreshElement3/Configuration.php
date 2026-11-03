@@ -306,7 +306,9 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'desiccantDurability' => ['integer', 'min:0', 'max:90'],
             'desiccantNextChange' => ['integer', 'min:0'],
             'amount' => ['integer', 'min:1', 'max:100'],
-            'schedule' => ['array']
+            'schedule' => ['array'],
+            'feed_sound' => ['nullable', 'array'],
+            'feed_sound_file' => ['nullable', 'string'],
         ];
     }
 
@@ -333,6 +335,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'desiccantNextChange' => 0,
             'amount' => 10,
             'schedule' => [],
+            'feed_sound' => null,
+            'feed_sound_file' => null,
             'lightRange' => ['from' => 0, 'till' => 1440],
             'disturbRange' => ['from' => 1320, 'till' => 360],
         ];
