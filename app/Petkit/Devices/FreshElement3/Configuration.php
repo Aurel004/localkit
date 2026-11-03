@@ -38,6 +38,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         entityCategory: 'diagnostic'
     )]
     public ?string $workingState;
+    public ?array $feed_sound = null;
+    public ?string $feed_sound_file = null;
 
     // Internal only - not published to Home Assistant itself. This device
     // has no weight sensor or pet_discern topic, so nothing currently
@@ -359,6 +361,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'language' => new StringCast(),
             'lightRange' => new DTOCast(RangeDTO::class),
             'disturbRange' => new DTOCast(RangeDTO::class),
+            'feed_sound' => new ArrayCast(),
+            'feed_sound_file' => new StringCast(),
         ];
     }
 
@@ -397,6 +401,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
 
         // Load schedule
         $data['schedule'] = $config['schedule'] ?? null;
+        $data['feed_sound'] = $config['feed_sound'] ?? null;
+        $data['feed_sound_file'] = $config['feed_sound_file'] ?? null;
 
         // Filter out null values to let defaults() handle missing data
         return new self(array_filter($data, fn($value) => $value !== null));
@@ -432,7 +438,9 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
                 'numLimit' => $this->numLimit,
                 'amount' => $this->amount,
             ],
-            'schedule' => $this->schedule
+            'schedule' => $this->schedule,
+            'feed_sound' => $this->feed_sound,
+            'feed_sound_file' => $this->feed_sound_file,
         ];
     }
 

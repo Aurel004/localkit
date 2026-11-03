@@ -15,18 +15,28 @@ class FeedSoundController extends Controller
     public function __invoke(Device $device, string $filename): BinaryFileResponse
     {
         $sound = $device->configuration['feed_sound'] ?? null;
-
-        if (!$sound || empty($sound['path'])) {
-            abort(404, 'No feed sound configured for this device.');
-        }
+        $path = $sound['path'] ?? ('sounds/' . $filename);
 
         $disk = Storage::disk('public');
 
-        if (!$disk->exists($sound['path'])) {
-            abort(404, 'Feed sound file not found on disk.');
+        if (!$disk->exists($path)) {
+            // Fallback: check matching sound file in sounds directory
+            $matched = null;
+            $files = $disk->files('sounds');
+            foreach ($files as $file) {
+                if (str_ends_with($file, '.aac') && str_contains($file, "feed_{$device->id}_")) {
+                    $matched = $file;
+                    break;
+                }
+            }
+            if ($matched) {
+                $path = $matched;
+            } else {
+                abort(404, 'Feed sound file not found on disk.');
+            }
         }
 
-        $fullPath = $disk->path($sound['path']);
+        $fullPath = $disk->path($path);
 
         return response()->file($fullPath, [
             'Content-Type' => 'audio/aac',
