@@ -394,7 +394,10 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
     // eat_video (Video/Photo Upload) not published to Home Assistant.
     public bool $eatVideo;
 
-    // Hopper calibration factors (bowl 1 / bowl 2)
+    // Hopper calibration factors (bowl 1 / bowl 2). min is 0, not 1: a factor
+    // of 0 is a value the device takes and the rest of the stack already
+    // allowed (rules say min:0, the admin form says minValue(0)) - the Number
+    // entity was the only place clamping it away from Home Assistant.
     #[Number(
         technicalName: 'factor1',
         name: 'Hopper 1 Calibration Factor',
@@ -403,7 +406,7 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         valueTemplate: '{{ value_json.settings.factor1 }}',
         commandTemplate: '{"factor1":{{ value }}}',
         entityCategory: 'config',
-        min: 1,
+        min: 0,
         max: 100,
         step: 1
     )]
@@ -417,7 +420,7 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         valueTemplate: '{{ value_json.settings.factor2 }}',
         commandTemplate: '{"factor2":{{ value }}}',
         entityCategory: 'config',
-        min: 1,
+        min: 0,
         max: 100,
         step: 1
     )]
@@ -609,6 +612,9 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
     public int $selectedSound;
 
     // AI and other settings
+    // Values as the Petkit app sends them: surplusControl 0/1, surplusStandard
+    // 1 = Low, 2 = Moderate, 3 = Full. Set in UI.php, read-only in Home
+    // Assistant like YumshareSolo (D4H).
     #[Sensor(
         technicalName: 'surplus_control',
         name: 'Surplus Food Control',
@@ -618,17 +624,12 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
     )]
     public int $surplusControl;
 
-    #[Number(
+    #[Sensor(
         technicalName: 'surplus_standard',
         name: 'Surplus Food Standard',
-        commandTopic: 'setting/set',
         icon: 'mdi:food-off',
-        valueTemplate: '{{ value_json.settings.surplusStandard }}',
-        commandTemplate: '{"surplusStandard":{{ value }}}',
-        entityCategory: 'config',
-        min: 0,
-        max: 100,
-        step: 1
+        entityCategory: 'diagnostic',
+        valueTemplate: '{{ value_json.settings.surplusStandard }}'
     )]
     public int $surplusStandard;
 
