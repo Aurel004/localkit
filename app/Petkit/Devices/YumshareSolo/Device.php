@@ -367,6 +367,16 @@ class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
             }
         }
 
+        if (array_key_exists('surplusControl', $difference) || array_key_exists('surplusStandard', $difference)) {
+            $difference['surplusControl'] = self::surplusThreshold(
+                (int) ($device->configuration['settings']['surplusControl'] ?? 0),
+                (int) ($device->configuration['settings']['surplusStandard'] ?? 2)
+            );
+            $difference['surplusStandard'] = self::surplusStandardForWire(
+                (int) ($device->configuration['settings']['surplusStandard'] ?? 2)
+            );
+        }
+
         if ($scheduleChanged) {
             $difference['feed'] = $this->toFeed($device);
         }
