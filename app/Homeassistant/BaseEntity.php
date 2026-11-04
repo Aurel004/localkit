@@ -148,6 +148,14 @@ class BaseEntity
             $config['image_encoding'] = $this->imageEncoding;
         }
 
+        if (isset($this->jsonAttributesTopic)) {
+            $config['json_attributes_topic'] = $this->jsonAttributesTopic;
+        }
+
+        if (isset($this->jsonAttributesTemplate)) {
+            $config['json_attributes_template'] = $this->jsonAttributesTemplate;
+        }
+
         return $config;
     }
 

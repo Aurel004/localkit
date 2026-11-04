@@ -327,6 +327,34 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
     )]
     public int $CTime;
 
+    #[HASwitch(
+        technicalName: 'schedule_enabled',
+        name: 'Feeding Schedule Enabled',
+        commandTopic: 'setting/set',
+        icon: 'mdi:calendar-check',
+        valueTemplate: '{{ value_json.settings.schedule_enabled }}',
+        commandTemplate: '{"schedule_enabled":{{ value }}}',
+        payloadOn: true,
+        payloadOff: false,
+        stateOn: true,
+        stateOff: false,
+        entityCategory: 'config'
+    )]
+    public bool $schedule_enabled;
+
+    #[Sensor(
+        technicalName: 'feeding_schedule',
+        name: 'Feeding Schedule',
+        icon: 'mdi:calendar-clock',
+        valueTemplate: '{{ value_json.states.feedingSchedule }}',
+        entityCategory: 'diagnostic',
+        jsonAttributesTopic: '~',
+        jsonAttributesTemplate: '{{ value_json.schedule_details | tojson }}'
+    )]
+    public ?string $feedingSchedule;
+
+    public ?array $scheduleDetails = null;
+
     // Camera settings
     #[HASwitch(
         technicalName: 'camera',
@@ -788,6 +816,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'plannedMealsToday' => ['nullable', 'integer'],
             'plannedPortionsToday' => ['nullable', 'integer'],
             'eatingTimeToday' => ['nullable', 'integer'],
+            'feedingSchedule' => ['nullable', 'string'],
+            'scheduleDetails' => ['nullable', 'array'],
 
             // Settings
             'foodWarn' => ['bool'],
@@ -799,6 +829,7 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'shareOpen' => ['bool'],
 
             // Schedule
+            'schedule_enabled' => ['bool'],
             'CTime' => ['integer'],
 
             // Camera
@@ -880,6 +911,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'plannedMealsToday' => 0,
             'plannedPortionsToday' => 0,
             'eatingTimeToday' => 0,
+            'feedingSchedule' => null,
+            'scheduleDetails' => null,
 
             // Settings
             'foodWarn' => false,
@@ -891,6 +924,7 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'shareOpen' => false,
 
             // Schedule
+            'schedule_enabled' => true,
             'CTime' => 0,
 
             // Camera
@@ -974,6 +1008,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'plannedMealsToday' => new IntegerCast(),
             'plannedPortionsToday' => new IntegerCast(),
             'eatingTimeToday' => new IntegerCast(),
+            'feedingSchedule' => new StringCast(),
+            'scheduleDetails' => new ArrayCast(),
 
             // Settings
             'foodWarn' => new BooleanCast(),
@@ -985,6 +1021,7 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'shareOpen' => new BooleanCast(),
 
             // Schedule
+            'schedule_enabled' => new BooleanCast(),
             'CTime' => new IntegerCast(),
 
             // Camera
@@ -1084,6 +1121,7 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             $data['hertz'] = $settings['hertz'] ?? null;
 
             // Schedule
+            $data['schedule_enabled'] = $settings['schedule_enabled'] ?? true;
             $data['CTime'] = $settings['CTime'] ?? null;
 
             // Camera settings
@@ -1134,6 +1172,12 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         $data['schedule'] = $config['schedule'] ?? null;
         $data['capacity'] = $config['capacity'] ?? null;
 
+        if ($device instanceof Device) {
+            $scheduleInfo = \App\Petkit\Devices\YumshareDual\Device::buildScheduleDetails($device, \App\Petkit\Devices\YumshareDual\Device::FEEDER_COUNT);
+            $data['feedingSchedule'] = $scheduleInfo['state'];
+            $data['scheduleDetails'] = $scheduleInfo['details'];
+        }
+
         // Filter out null values to let defaults() handle missing data
         return new self(array_filter($data, fn($value) => $value !== null));
     }
@@ -1165,6 +1209,7 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
                 'plannedMealsToday' => $this->plannedMealsToday,
                 'plannedPortionsToday' => $this->plannedPortionsToday,
                 'eatingTimeToday' => $this->eatingTimeToday,
+                'feedingSchedule' => $this->feedingSchedule,
             ],
             'settings' => [
                 'shareOpen' => $this->shareOpen,
@@ -1182,6 +1227,7 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
 
                 // Schedule
                 'CTime' => $this->CTime,
+                'schedule_enabled' => $this->schedule_enabled,
 
                 // Camera settings
                 'camera' => $this->camera,
@@ -1227,6 +1273,7 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
                 'serviceStatus' => $this->serviceStatus,
             ],
             'schedule' => $this->schedule,
+            'schedule_details' => $this->scheduleDetails,
             'capacity' => $this->capacity,
         ];
     }

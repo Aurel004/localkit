@@ -488,8 +488,11 @@ class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
             );
         }
 
-        if ($scheduleChanged) {
+        $scheduleEnabledChanged = array_key_exists('schedule_enabled', $difference);
+
+        if ($scheduleChanged || $scheduleEnabledChanged) {
             $difference['feed'] = $this->toFeed($device);
+            unset($difference['schedule_enabled']);
         }
 
         if (empty($difference)) {
