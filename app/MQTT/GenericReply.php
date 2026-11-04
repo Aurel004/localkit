@@ -9,14 +9,11 @@ class GenericReply
 {
     public static function reply(string $topic, mixed $message): AnswerDTO
     {
-        $method = $message?->method ?? null;
-        if (empty($method) && str_contains($topic, '/thing/')) {
-            $method = 'thing.' . MQTTTopic::topic2Method($topic);
-        }
-
         return new AnswerDTO(
             topic: sprintf('%s_reply', $topic),
-            message: SuccessResource::make($message, $method)
+            // The incoming topic, not the reply topic: it is what the ack's
+            // 'method' is derived from when the message carries none.
+            message: SuccessResource::make($message)->forTopic($topic)
         );
     }
 }
