@@ -198,6 +198,11 @@ class UI
 
             Section::make('Feeding Plan')
                 ->schema([
+                    Toggle::make('configuration.settings.schedule_enabled')
+                        ->label('Feeding Schedule Enabled')
+                        ->helperText('Enable or disable automated schedule execution on the device')
+                        ->default(true),
+
                     Repeater::make('configuration.schedule')
                         ->schema([
                             CheckboxList::make('re')

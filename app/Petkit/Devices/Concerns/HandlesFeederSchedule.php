@@ -76,6 +76,16 @@ trait HandlesFeederSchedule
 
     public function toFeed(DeviceModel $device): string
     {
+        $settings = $device->configuration['settings'] ?? [];
+        $enabled = (bool) ($settings['schedule_enabled'] ?? true);
+        if (!$enabled) {
+            return json_encode([
+                'schedule' => [],
+                'nextTick' => 0,
+                'latest' => [],
+            ]);
+        }
+
         // configuration['schedule'] is now just a pointer (['key'=>..,
         // 'checksum'=>..]) - the actual day-groups live in
         // device_schedules/device_schedule_items, see Device::scheduleGroups().
@@ -127,6 +137,16 @@ trait HandlesFeederSchedule
      */
     public function toFeedGet(): array
     {
+        $settings = $this->device->configuration['settings'] ?? [];
+        $enabled = (bool) ($settings['schedule_enabled'] ?? true);
+        if (!$enabled) {
+            return [
+                'schedule' => [],
+                'nextTick' => 0,
+                'latest' => [],
+            ];
+        }
+
         $unusedDays = [1, 2, 3, 4, 5, 6, 7];
         $key = $this->device->configuration['schedule']['key'] ?? 'default';
         $schedules = $this->device->scheduleGroups($key);
@@ -256,5 +276,136 @@ trait HandlesFeederSchedule
 
         FeedRealtime::dispatchSync($record, $amount);
         ServiceStart::dispatchSync($record, $amount);
+    }
+
+    /**
+     * Builds human-readable schedule information and structured attributes
+     * for Home Assistant entities (sensor and switch).
+     *
+     * @return array{state: string, details: array}
+     */
+    public static function buildScheduleDetails(DeviceModel $device, int $feederCount = 1): array
+    {
+        $key = $device->configuration['schedule']['key'] ?? 'default';
+        $groups = $device->scheduleGroups($key);
+        $settings = $device->configuration['settings'] ?? [];
+        $enabled = (bool) ($settings['schedule_enabled'] ?? true);
+
+        $dayNames = [
+            1 => 'Dimanche',
+            2 => 'Lundi',
+            3 => 'Mardi',
+            4 => 'Mercredi',
+            5 => 'Jeudi',
+            6 => 'Vendredi',
+            7 => 'Samedi',
+        ];
+        $dayShort = [
+            1 => 'Dim',
+            2 => 'Lun',
+            3 => 'Mar',
+            4 => 'Mer',
+            5 => 'Jeu',
+            6 => 'Ven',
+            7 => 'Sam',
+        ];
+
+        $meals = [];
+        foreach ($groups as $group) {
+            $reRaw = (string) ($group['re'] ?? '');
+            $reDays = array_values(array_filter(explode(',', $reRaw), fn($d) => $d !== ''));
+            sort($reDays);
+
+            if (count($reDays) === 7) {
+                $daysLabel = 'Tous les jours';
+            } elseif ($reDays === ['2', '3', '4', '5', '6']) {
+                $daysLabel = 'Semaine (Lun-Ven)';
+            } elseif ($reDays === ['1', '7']) {
+                $daysLabel = 'Week-end';
+            } else {
+                $daysLabel = implode(', ', array_map(fn($d) => $dayShort[(int)$d] ?? $d, $reDays));
+            }
+
+            $dayFullList = array_values(array_map(fn($d) => $dayNames[(int)$d] ?? $d, $reDays));
+
+            foreach ($group['it'] ?? [] as $item) {
+                $seconds = (int) ($item['t'] ?? 0);
+                $timeStr = Time::toTimeFromSeconds($seconds);
+
+                $mealData = [
+                    'time' => $timeStr,
+                    'seconds' => $seconds,
+                    'days' => $dayFullList,
+                    'days_label' => $daysLabel,
+                ];
+
+                if ($feederCount > 1) {
+                    $a1 = (int) ($item['a1'] ?? 0);
+                    $a2 = (int) ($item['a2'] ?? 0);
+                    $mealData['amount_hopper_1'] = $a1;
+                    $mealData['amount_hopper_2'] = $a2;
+                    $mealData['total_amount'] = $a1 + $a2;
+                } else {
+                    $a = (int) ($item['a'] ?? 0);
+                    $mealData['amount'] = $a;
+                    $mealData['total_amount'] = $a;
+                }
+
+                $meals[] = $mealData;
+            }
+        }
+
+        usort($meals, fn($a, $b) => $a['seconds'] <=> $b['seconds']);
+
+        $nextFeedTime = null;
+        $nextFeedDate = null;
+        $nextState = 'Aucun repas';
+
+        if (!$enabled) {
+            $nextState = 'Désactivé';
+        } else {
+            $latest = Time::calculateLatest($groups);
+            $next = reset($latest) ?: null;
+
+            if ($next) {
+                if (preg_match('/^s_(\d{4})(\d{2})(\d{2})_(\d+)$/', (string) ($next['id'] ?? ''), $m)) {
+                    $nextFeedDate = sprintf('%s-%s-%s', $m[1], $m[2], $m[3]);
+                    $nextFeedTime = Time::toTimeFromSeconds((int) $m[4]);
+                } else {
+                    $nextFeedTime = Time::toTimeFromSeconds((int) ($next['t'] ?? 0));
+                }
+
+                if ($feederCount > 1) {
+                    $nextA1 = (int) ($next['a1'] ?? 0);
+                    $nextA2 = (int) ($next['a2'] ?? 0);
+                    $nextState = sprintf('%s (Bac 1: %d, Bac 2: %d)', $nextFeedTime, $nextA1, $nextA2);
+                } else {
+                    $nextA = (int) ($next['a'] ?? 0);
+                    $nextState = sprintf('%s (%d dose%s)', $nextFeedTime, $nextA, $nextA > 1 ? 's' : '');
+                }
+            }
+        }
+
+        $summaryParts = [];
+        foreach ($meals as $m) {
+            if ($feederCount > 1) {
+                $summaryParts[] = sprintf('%s (B1: %d, B2: %d)', $m['time'], $m['amount_hopper_1'], $m['amount_hopper_2']);
+            } else {
+                $summaryParts[] = sprintf('%s (%d dose%s)', $m['time'], $m['amount'], $m['amount'] > 1 ? 's' : '');
+            }
+        }
+        $summary = !empty($summaryParts) ? implode(' • ', $summaryParts) : 'Aucun repas';
+
+        return [
+            'state' => $nextState,
+            'details' => [
+                'enabled' => $enabled,
+                'next_feed_time' => $nextFeedTime,
+                'next_feed_date' => $nextFeedDate,
+                'total_daily_meals' => count($meals),
+                'meals' => $meals,
+                'summary' => $summary,
+            ],
+        ];
     }
 }
