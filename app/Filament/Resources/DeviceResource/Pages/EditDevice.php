@@ -40,6 +40,10 @@ class EditDevice extends EditRecord
             $data['configuration']['schedule'] = $record->scheduleGroups($key);
         }
 
+        if (isset($record->configuration['feed_sound_file'])) {
+            $data['configuration']['feed_sound_file'] = $record->configuration['feed_sound_file'];
+        }
+
         return $data;
     }
 
@@ -86,6 +90,39 @@ class EditDevice extends EditRecord
                 'key' => $key,
                 'checksum' => md5(json_encode($groups)),
             ];
+        }
+
+        // Process custom feed sound upload or removal safely
+        if (isset($data['configuration']) && is_array($data['configuration'])) {
+            $uploadedPath = $data['configuration']['feed_sound_file'] ?? null;
+            if (is_array($uploadedPath)) {
+                $uploadedPath = array_values($uploadedPath)[0] ?? null;
+            }
+            $existingPath = $record->configuration['feed_sound_file'] ?? null;
+            $removeSound = (bool) ($data['configuration']['remove_feed_sound'] ?? false);
+
+            if ($removeSound) {
+                \App\Services\FeedSoundService::cleanupOldFiles($record);
+                $data['configuration']['feed_sound'] = null;
+                $data['configuration']['feed_sound_file'] = null;
+                $data['configuration']['settings']['selectedSound'] = -1;
+                unset($data['configuration']['remove_feed_sound']);
+            } elseif (!empty($uploadedPath) && $uploadedPath !== $existingPath && !str_starts_with((string)$uploadedPath, 'sounds/feed_')) {
+                $soundMeta = \App\Services\FeedSoundService::processUpload($record, $uploadedPath);
+                if ($soundMeta !== null) {
+                    $data['configuration']['feed_sound'] = $soundMeta;
+                    $data['configuration']['feed_sound_file'] = $uploadedPath;
+                    $data['configuration']['settings']['selectedSound'] = $soundMeta['id'];
+                    $data['configuration']['settings']['soundEnable'] = true;
+                } else {
+                    $data['configuration']['feed_sound'] = $record->configuration['feed_sound'] ?? null;
+                    $data['configuration']['feed_sound_file'] = $existingPath;
+                }
+            } else {
+                // Always preserve existing sound configuration unless explicitly deleted
+                $data['configuration']['feed_sound'] = $record->configuration['feed_sound'] ?? null;
+                $data['configuration']['feed_sound_file'] = $existingPath;
+            }
         }
 
         return $data;
