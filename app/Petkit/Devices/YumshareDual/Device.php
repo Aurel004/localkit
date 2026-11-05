@@ -680,6 +680,16 @@ class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
             $settings->isEating = ((int) $content->eating === 1);
         }
 
+        if (isset($content->food1)) {
+            $settings->foodLevelHopper1 = (int) $content->food1;
+        } elseif (isset($content->food)) {
+            $settings->foodLevelHopper1 = (int) $content->food;
+        }
+
+        if (isset($content->food2)) {
+            $settings->foodLevelHopper2 = (int) $content->food2;
+        }
+
         return $settings->toArray();
     }
 
