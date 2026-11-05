@@ -23,7 +23,6 @@ use App\Petkit\BluetoothDevices\Message;
 use App\Petkit\DeviceActions;
 use App\Petkit\DeviceDefinition;
 use App\Petkit\Devices\Concerns\HandlesFeederSchedule;
-use App\Petkit\Devices\Concerns\HandlesSurplusControl;
 use App\Petkit\Devices\Configuration\ConfigurationInterface;
 use App\Petkit\DeviceStates;
 use Carbon\Carbon;
@@ -33,7 +32,6 @@ use PhpMqtt\Client\Facades\MQTT;
 class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
 {
     use HandlesFeederSchedule;
-    use HandlesSurplusControl;
 
     /** schedule.md §4e/§4f: this is D4SH, the one confirmed dual-hopper feeder (a1/a2). */
     public const FEEDER_COUNT = 2;
@@ -56,6 +54,7 @@ class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
             sprintf('/ota/device/upgrade/%s/%s', $this->device->productKey(), $this->device->deviceName()),
             sprintf('/sys/%s/%s/thing/service/property/set', $this->device->productKey(), $this->device->deviceName()),
             sprintf('/sys/%s/%s/thing/service/feed_realtime', $this->device->productKey(), $this->device->deviceName()),
+            sprintf('/sys/%s/%s/thing/service/play_sound', $this->device->productKey(), $this->device->deviceName()),
             sprintf('/sys/%s/%s/thing/service/connect', $this->device->productKey(), $this->device->deviceName()),
             sprintf('/sys/%s/%s/thing/service/ble', $this->device->productKey(), $this->device->deviceName()),
             sprintf('/sys/%s/%s/thing/event/ble_relay_start/post_reply', $this->device->productKey(), $this->device->deviceName()),
@@ -487,7 +486,6 @@ class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
                 (int) ($device->configuration['settings']['surplusStandard'] ?? 2)
             );
         }
-
         $scheduleEnabledChanged = array_key_exists('schedule_enabled', $difference);
 
         if ($scheduleChanged || $scheduleEnabledChanged) {
@@ -544,6 +542,16 @@ class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
                 break;
             case 'snapshot':
                 $this->takeSnapshot($this->getDevice());
+                break;
+            case 'play_sound':
+                $soundId = (int) ($this->getDevice()->configuration['feed_sound']['id'] ?? ($this->getDevice()->configuration['settings']['selectedSound'] ?? 1));
+                if ($soundId <= 0) {
+                    $soundId = 1;
+                }
+                \App\Jobs\PlaySound::dispatchSync($this->getDevice(), $soundId);
+                break;
+            case 'reset_desiccant':
+                $this->resetDesiccant($this->getDevice());
                 break;
         }
     }
@@ -623,8 +631,8 @@ class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
                 'feedSound' => (int)$config['feedSound'],
                 'volume' => (int)$config['volume'],
                 'selectedSound' => (int)$config['selectedSound'],
-                'surplusControl' => self::surplusThreshold((int)$config['surplusControl'], (int)$config['surplusStandard']),
-                'surplusStandard' => self::surplusStandardForWire((int)$config['surplusStandard']),
+                'surplusControl' => (int)$config['surplusControl'],
+                'surplusStandard' => (int)$config['surplusStandard'],
                 'smartFrame' => (int)$config['smartFrame'],
                 'upload' => (int)$config['upload'],
                 'attireId' => (int)$config['attireId'],

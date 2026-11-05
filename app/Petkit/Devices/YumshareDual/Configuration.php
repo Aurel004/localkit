@@ -66,6 +66,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
     )]
     public int $amount2;
     public array $schedule;
+    public ?array $feed_sound = null;
+    public ?string $feed_sound_file = null;
 
     // States
     #[Sensor(
@@ -171,7 +173,6 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         name: 'Feedings Today',
         icon: 'mdi:bowl-mix',
         stateClass: 'total_increasing',
-        unitOfMeasurement: 'feedings',
         valueTemplate: '{{ value_json.states.feedingsToday }}',
         entityCategory: 'diagnostic'
     )]
@@ -182,7 +183,6 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         name: 'Meals Today',
         icon: 'mdi:food-drumstick',
         stateClass: 'total_increasing',
-        unitOfMeasurement: 'meals',
         valueTemplate: '{{ value_json.states.mealsToday }}',
         entityCategory: 'diagnostic'
     )]
@@ -193,7 +193,6 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         name: 'Visits Today',
         icon: 'mdi:cat',
         stateClass: 'total_increasing',
-        unitOfMeasurement: 'visits',
         valueTemplate: '{{ value_json.states.visitsToday }}',
         entityCategory: 'diagnostic'
     )]
@@ -204,7 +203,6 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         name: 'Portions Dispensed Hopper 1 Today',
         icon: 'mdi:numeric-1-box-multiple',
         stateClass: 'total_increasing',
-        unitOfMeasurement: 'portions',
         valueTemplate: '{{ value_json.states.portionsHopper1Today }}',
         entityCategory: 'diagnostic'
     )]
@@ -215,7 +213,6 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         name: 'Portions Dispensed Hopper 2 Today',
         icon: 'mdi:numeric-2-box-multiple',
         stateClass: 'total_increasing',
-        unitOfMeasurement: 'portions',
         valueTemplate: '{{ value_json.states.portionsHopper2Today }}',
         entityCategory: 'diagnostic'
     )]
@@ -226,7 +223,6 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         name: 'Manual Portions Today',
         icon: 'mdi:hand-pointing-right',
         stateClass: 'total_increasing',
-        unitOfMeasurement: 'portions',
         valueTemplate: '{{ value_json.states.manualPortionsToday }}',
         entityCategory: 'diagnostic'
     )]
@@ -236,7 +232,6 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         technicalName: 'planned_meals_today',
         name: 'Planned Meals Today',
         icon: 'mdi:calendar-clock',
-        unitOfMeasurement: 'meals',
         valueTemplate: '{{ value_json.states.plannedMealsToday }}',
         entityCategory: 'diagnostic'
     )]
@@ -246,7 +241,6 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         technicalName: 'planned_portions_today',
         name: 'Planned Portions Today',
         icon: 'mdi:counter',
-        unitOfMeasurement: 'portions',
         valueTemplate: '{{ value_json.states.plannedPortionsToday }}',
         entityCategory: 'diagnostic'
     )]
@@ -658,7 +652,13 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
     )]
     public int $volume;
 
-    // selected_sound not published to Home Assistant.
+    #[Sensor(
+        technicalName: 'selected_sound',
+        name: 'Selected Sound',
+        icon: 'mdi:music-note',
+        entityCategory: 'diagnostic',
+        valueTemplate: '{{ value_json.settings.selectedSound }}'
+    )]
     public int $selectedSound;
 
     // AI and other settings
@@ -762,6 +762,17 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
     private $actionFeed = 1;
 
     #[Button(
+        technicalName: 'action_play_sound',
+        name: 'Test Voice Recording',
+        commandTopic: 'action/start',
+        icon: 'mdi:volume-high',
+        commandTemplate: '{"action": "play_sound"}',
+        availabilityTemplate: 'online',
+        entityCategory: 'diagnostic'
+    )]
+    private $actionPlaySound = 1;
+
+    #[Button(
         technicalName: 'action_feed_hopper_1',
         name: 'Feed 1 Dose Hopper 1',
         commandTopic: 'action/start',
@@ -803,10 +814,20 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         name: 'Next Desiccant Change in Days',
         icon: 'mdi:update',
         unitOfMeasurement: 'd',
-        valueTemplate: '{{ ((value_json.consumables.desiccantNextChange - as_timestamp(now())) / 86400) | round(1) }}',
+        valueTemplate: '{{ [((value_json.consumables.desiccantNextChange - as_timestamp(now())) / 86400) | round(1), 0] | max if (value_json.consumables.desiccantNextChange | default(0) > 0) else 0 }}',
         entityCategory: 'diagnostic'
     )]
     public int $desiccantNextChange;
+
+    #[Button(
+        technicalName: 'action_reset_desiccant',
+        name: 'Reset Desiccant',
+        commandTopic: 'action/start',
+        icon: 'mdi:restore',
+        commandTemplate: '{"action": "reset_desiccant"}',
+        availabilityTemplate: 'online',
+    )]
+    private $actionResetDesiccant = 1;
 
     protected function rules(): array
     {
@@ -880,6 +901,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'detectMultiRange' => ['array'],
 
             // Sound
+            'feed_sound' => ['nullable', 'array'],
+            'feed_sound_file' => ['nullable', 'string'],
             'toneMode' => ['bool'],
             'toneMultiRange' => ['array'],
             'soundEnable' => ['bool'],
@@ -977,6 +1000,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'detectMultiRange' => [[0, 1440]],
 
             // Sound
+            'feed_sound' => null,
+            'feed_sound_file' => null,
             'toneMode' => false,
             'toneMultiRange' => [[1320, 360]],
             'soundEnable' => false,
@@ -1083,6 +1108,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'feedSound' => new BooleanCast(),
             'volume' => new IntegerCast(),
             'selectedSound' => new IntegerCast(),
+            'feed_sound' => new ArrayCast(),
+            'feed_sound_file' => new StringCast(),
 
             // AI and other
             'surplusControl' => new IntegerCast(),
@@ -1201,6 +1228,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         // Load schedule and capacity
         $data['schedule'] = $config['schedule'] ?? null;
         $data['capacity'] = $config['capacity'] ?? null;
+        $data['feed_sound'] = $config['feed_sound'] ?? null;
+        $data['feed_sound_file'] = $config['feed_sound_file'] ?? null;
 
         if ($device instanceof Device) {
             $scheduleInfo = \App\Petkit\Devices\YumshareDual\Device::buildScheduleDetails($device, \App\Petkit\Devices\YumshareDual\Device::FEEDER_COUNT);
@@ -1307,6 +1336,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'schedule' => $this->schedule,
             'schedule_details' => $this->scheduleDetails,
             'capacity' => $this->capacity,
+            'feed_sound' => $this->feed_sound,
+            'feed_sound_file' => $this->feed_sound_file,
         ];
     }
 

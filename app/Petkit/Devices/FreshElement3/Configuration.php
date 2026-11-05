@@ -38,6 +38,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         entityCategory: 'diagnostic'
     )]
     public ?string $workingState;
+    public ?array $feed_sound = null;
+    public ?string $feed_sound_file = null;
 
     // Internal only - not published to Home Assistant itself. This device
     // has no weight sensor or pet_discern topic, so nothing currently
@@ -242,6 +244,17 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
     )]
     private $actionFeed = 1;
 
+    #[Button(
+        technicalName: 'action_play_sound',
+        name: 'Test Voice Recording',
+        commandTopic: 'action/start',
+        icon: 'mdi:volume-high',
+        commandTemplate: '{"action": "play_sound"}',
+        availabilityTemplate: 'online',
+        entityCategory: 'diagnostic'
+    )]
+    private $actionPlaySound = 1;
+
     #[Number(
         technicalName: 'desiccant_durability',
         name: 'Desiccant Durability',
@@ -293,7 +306,9 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'desiccantDurability' => ['integer', 'min:0', 'max:90'],
             'desiccantNextChange' => ['integer', 'min:0'],
             'amount' => ['integer', 'min:1', 'max:100'],
-            'schedule' => ['array']
+            'schedule' => ['array'],
+            'feed_sound' => ['nullable', 'array'],
+            'feed_sound_file' => ['nullable', 'string'],
         ];
     }
 
@@ -320,6 +335,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'desiccantNextChange' => 0,
             'amount' => 10,
             'schedule' => [],
+            'feed_sound' => null,
+            'feed_sound_file' => null,
             'lightRange' => ['from' => 0, 'till' => 1440],
             'disturbRange' => ['from' => 1320, 'till' => 360],
         ];
@@ -348,6 +365,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
             'language' => new StringCast(),
             'lightRange' => new DTOCast(RangeDTO::class),
             'disturbRange' => new DTOCast(RangeDTO::class),
+            'feed_sound' => new ArrayCast(),
+            'feed_sound_file' => new StringCast(),
         ];
     }
 
@@ -386,6 +405,8 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
 
         // Load schedule
         $data['schedule'] = $config['schedule'] ?? null;
+        $data['feed_sound'] = $config['feed_sound'] ?? null;
+        $data['feed_sound_file'] = $config['feed_sound_file'] ?? null;
 
         // Filter out null values to let defaults() handle missing data
         return new self(array_filter($data, fn($value) => $value !== null));
@@ -421,7 +442,9 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
                 'numLimit' => $this->numLimit,
                 'amount' => $this->amount,
             ],
-            'schedule' => $this->schedule
+            'schedule' => $this->schedule,
+            'feed_sound' => $this->feed_sound,
+            'feed_sound_file' => $this->feed_sound_file,
         ];
     }
 

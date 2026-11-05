@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CameraLiveController;
 use App\Http\Controllers\CameraThumbnailController;
+use App\Http\Controllers\FeedSoundController;
 use App\Http\Controllers\LogDownloadController;
 use App\Http\Controllers\MediaDownloadController;
 use App\Http\Controllers\MediaFileController;
@@ -49,6 +50,10 @@ Route::get('camera/{device}/live.ts', CameraLiveController::class)
 // DevDiscernPicResource) - no auth, extensionless on purpose.
 Route::get('pet/media/{id}', PetMediaController::class)
     ->name('pet.media');
+
+// Custom feed sound file, fetched directly by the feeder device (via dev_sound_get sync).
+Route::get('sound/feed/{device}/{filename}', FeedSoundController::class)
+    ->name('sound.feed');
 
 /*
  * OCI-compatible object storage emulation used by PetKit cameras.
