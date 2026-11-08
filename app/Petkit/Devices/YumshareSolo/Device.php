@@ -95,7 +95,7 @@ class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
             },
             sprintf('/sys/%s/%s/thing/event/feed_over/post', $this->device->productKey(), $this->device->deviceName()) => function (DeviceModel $device, string $topic, stdClass|null $message) {
                 $this->mergeHistory($message?->params?->event_id ?? null, $message?->params?->content ?? null, DeviceStates::WORKING->value);
-                $this->publishDispenseEvent($device, $message?->params?->content ?? null);
+                $this->publishDispenseEvent($device, $message?->params?->content ?? null, $message?->params?->event_id ?? null);
 
                 $state = json_decode($message?->params?->state, false);
                 $device->update([

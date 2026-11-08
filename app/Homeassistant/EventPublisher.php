@@ -39,6 +39,5 @@ class EventPublisher
             'event_type' => Str::lower($eventType),
             ...$attributes,
         ]), 0, false);
-        $mqtt->disconnect();
     }
 }

@@ -24,7 +24,19 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class SuccessResource extends JsonResource
 {
+    protected ?string $explicitMethod = null;
     protected ?string $replyTopic = null;
+
+    public function __construct($resource, ?string $method = null)
+    {
+        parent::__construct($resource);
+        $this->explicitMethod = $method;
+    }
+
+    public static function make(...$parameters)
+    {
+        return new static(...$parameters);
+    }
 
     /**
      * The topic of the message being acked (the `.../post`, not the
@@ -40,15 +52,17 @@ class SuccessResource extends JsonResource
     public function toArray(Request $request): array
     {
         $data = new stdClass();
+        $id = $this->resource->id ?? null;
 
         return [
             'code' => 200,
             'data' => $data,
-            'id' => $this->resource->id ?? null,
+            'id' => is_scalar($id) ? (string) $id : '',
             'message' => "success",
-            'method' => $this->resource->method
+            'method' => $this->explicitMethod
+                ?? $this->resource->method
                 ?? ($this->replyTopic !== null ? MQTTTopic::topic2Method($this->replyTopic) : null),
-            'version' => "1.0.0"
+            'version' => "1.0"
         ];
     }
 
