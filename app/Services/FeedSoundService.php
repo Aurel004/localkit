@@ -137,6 +137,98 @@ class FeedSoundService
     }
 
     /**
+     * Rebuild the feed sound metadata from the converted file kept in persistent storage
+     * (storage/app/public/sounds/feed_{device}_{id}.aac).
+     *
+     * Used when the device configuration lost its `feed_sound` entry (e.g. the JSON
+     * configuration was rewritten by code unaware of these keys) while the audio file
+     * itself still exists. Files are only deleted by an explicit removal in the UI
+     * (cleanupOldFiles), so an existing file always reflects the user's last choice.
+     *
+     * @return array{id: int, digest: string, size: int, duration: int, filename: string, path: string, gmtCreate: string}|null
+     */
+    public static function recoverFromDisk(Device $device): ?array
+    {
+        static $cache = [];
+
+        if (!$device->exists) {
+            return null;
+        }
+
+        $disk = Storage::disk('public');
+        $found = null;
+        $foundId = 0;
+        $foundTime = -1;
+
+        foreach ($disk->files('sounds') as $file) {
+            if (preg_match('/^sounds\/feed_' . $device->id . '_(\d+)\.aac$/', $file, $m)) {
+                $time = $disk->lastModified($file);
+                if ($time > $foundTime) {
+                    $found = $file;
+                    $foundId = (int) $m[1];
+                    $foundTime = $time;
+                }
+            }
+        }
+
+        if ($found === null) {
+            return null;
+        }
+
+        $fullPath = $disk->path($found);
+        $cacheKey = $found . '|' . $foundTime . '|' . filesize($fullPath);
+
+        // fromDevice() runs on every MQTT message: avoid re-running ffprobe each time
+        if (!isset($cache[$cacheKey])) {
+            $cache[$cacheKey] = [
+                'id' => $foundId,
+                'digest' => md5_file($fullPath),
+                'size' => filesize($fullPath),
+                'duration' => max(1, (int) round(self::detectDuration($fullPath))),
+                'filename' => "feed_{$foundId}.aac",
+                'path' => $found,
+                'gmtCreate' => date('Y-m-d H:i:s', $foundTime),
+            ];
+        }
+
+        return $cache[$cacheKey];
+    }
+
+    /**
+     * Recover the feed sound from storage (see recoverFromDisk) and persist it back into
+     * the device configuration. Returns the active sound metadata, or null if none.
+     */
+    public static function restore(Device $device): ?array
+    {
+        $current = $device->configuration['feed_sound'] ?? null;
+        if (!empty($current['digest']) && !empty($current['filename'])) {
+            return $current;
+        }
+
+        $sound = self::recoverFromDisk($device);
+        if ($sound === null) {
+            return null;
+        }
+
+        $config = $device->configuration ?? [];
+        $config['feed_sound'] = $sound;
+        $config['feed_sound_file'] = $config['feed_sound_file'] ?? $sound['path'];
+        if ((int) ($config['settings']['selectedSound'] ?? -1) <= 0) {
+            $config['settings']['selectedSound'] = $sound['id'];
+        }
+
+        $device->configuration = $config;
+        $device->saveQuietly();
+
+        Log::info('FeedSoundService: feed sound restored from storage', [
+            'device' => $device->id,
+            'path' => $sound['path'],
+        ]);
+
+        return $sound;
+    }
+
+    /**
      * Remove old generated sound files for this device.
      */
     public static function cleanupOldFiles(Device $device, ?int $exceptId = null): void

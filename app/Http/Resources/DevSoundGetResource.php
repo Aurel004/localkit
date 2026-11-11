@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Device;
+use App\Services\FeedSoundService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Log;
@@ -25,30 +26,8 @@ class DevSoundGetResource extends PetkitHttpResource
         $sound = $this->resource->configuration['feed_sound'] ?? null;
 
         if (!$sound || empty($sound['digest']) || empty($sound['filename'])) {
-            $disk = Storage::disk('public');
-            $files = $disk->files('sounds');
-            $found = null;
-            $foundId = (int) ($this->resource->configuration['settings']['selectedSound'] ?? 1);
-            if ($foundId <= 0) $foundId = 1;
-            foreach ($files as $file) {
-                if (preg_match('/^sounds\/feed_' . $this->resource->id . '_(\d+)\.aac$/', $file, $m)) {
-                    $found = $file;
-                    $foundId = (int) $m[1];
-                    break;
-                }
-            }
-            if ($found && $disk->exists($found)) {
-                $fullPath = $disk->path($found);
-                $sound = [
-                    'id' => $foundId,
-                    'digest' => md5_file($fullPath),
-                    'size' => filesize($fullPath),
-                    'duration' => 1,
-                    'filename' => "feed_{$foundId}.aac",
-                    'path' => $found,
-                    'gmtCreate' => now()->toDateTimeString(),
-                ];
-            }
+            // Configuration lost its metadata: recover it from storage and persist it
+            $sound = FeedSoundService::restore($this->resource);
         }
 
         if (!$sound || empty($sound['digest']) || empty($sound['filename'])) {

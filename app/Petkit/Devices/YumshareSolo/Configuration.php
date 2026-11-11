@@ -937,6 +937,20 @@ class Configuration extends DeviceConfigurationDTO implements ConfigurationInter
         $data['feed_sound'] = $config['feed_sound'] ?? null;
         $data['feed_sound_file'] = $config['feed_sound_file'] ?? null;
 
+        // Self-heal: recover the custom feed sound from persistent storage when the stored
+        // configuration lost its metadata (rewritten by code unaware of these keys).
+        // The next configuration save (any MQTT event) persists it back.
+        if (empty($data['feed_sound']) && $device instanceof Device) {
+            $recovered = \App\Services\FeedSoundService::recoverFromDisk($device);
+            if ($recovered !== null) {
+                $data['feed_sound'] = $recovered;
+                $data['feed_sound_file'] = $data['feed_sound_file'] ?? $recovered['path'];
+                if ((int) ($data['selectedSound'] ?? -1) <= 0) {
+                    $data['selectedSound'] = $recovered['id'];
+                }
+            }
+        }
+
         // Filter out null values to let defaults() handle missing data
         return new self(array_filter($data, fn($value) => $value !== null));
     }
