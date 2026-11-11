@@ -212,7 +212,7 @@ trait HandlesFeederSchedule
             // old feeds in today's statistics.
             $happenedAt = (int) ($content['start_time'] ?? $content['completed_at'] ?? 0);
             if ($happenedAt > 0) {
-                $history->created_at = Carbon::createFromTimestamp($happenedAt);
+                $history->created_at = Carbon::createFromTimestamp($happenedAt, config('app.timezone'));
             }
 
             $history->save();
