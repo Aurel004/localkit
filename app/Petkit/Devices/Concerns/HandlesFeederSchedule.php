@@ -9,7 +9,9 @@ use App\Jobs\ServiceStart;
 use App\Models\Device as DeviceModel;
 use App\Models\History;
 use App\Petkit\DeviceStates;
+use Carbon\Carbon;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -215,13 +217,25 @@ trait HandlesFeederSchedule
                 return;
             }
 
-            History::create([
+            $history = new History([
                 'messageId' => $messageId,
                 'pet_id' => null,
                 'type' => $type,
                 'parameters' => $content,
                 'device_id' => $this->device->id,
             ]);
+
+            // Date the row by when the feed actually happened, not by when
+            // the message reached us. The device queues feed_over until it
+            // is acked and may deliver it long after the fact (e.g. a backlog
+            // flushed after a reconnect); stamping it with now() would count
+            // old feeds in today's statistics.
+            $happenedAt = (int) ($content['start_time'] ?? $content['completed_at'] ?? 0);
+            if ($happenedAt > 0) {
+                $history->created_at = Carbon::createFromTimestamp($happenedAt, config('app.timezone'));
+            }
+
+            $history->save();
 
             return;
         }
@@ -242,9 +256,25 @@ trait HandlesFeederSchedule
      * feed comes back as either a 'latest' id (s_<date>_<t>) or the schedule
      * item's own id (n_<t>), depending on which the device fired from.
      */
-    protected function publishDispenseEvent(DeviceModel $device, ?string $rawContent): void
+    protected function publishDispenseEvent(DeviceModel $device, ?string $rawContent, ?string $eventId = null): void
     {
         $content = json_decode($rawContent ?? '{}', true) ?? [];
+
+        // Deduplication: prevent firmware retransmissions or retries from spamming Home Assistant.
+        $dedupKey = $eventId ?? $content['id'] ?? null;
+        if (!empty($dedupKey)) {
+            $cacheKey = "dispense_event_{$device->id}_{$dedupKey}";
+            if (!Cache::add($cacheKey, true, now()->addHours(24))) {
+                return;
+            }
+        }
+
+        // Freshness guard: only publish real-time events for recent feeds (within the last 15 minutes).
+        // Ancient feeds re-sent during queue syncs must not trigger live Home Assistant automations.
+        $timestamp = (int) ($content['completed_at'] ?? $content['start_time'] ?? 0);
+        if ($timestamp > 0 && abs(now()->timestamp - $timestamp) > 900) {
+            return;
+        }
 
         EventPublisher::publish($device, 'dispense', [
             'source' => match (true) {
