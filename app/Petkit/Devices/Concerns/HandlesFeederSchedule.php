@@ -9,6 +9,7 @@ use App\Jobs\ServiceStart;
 use App\Models\Device as DeviceModel;
 use App\Models\History;
 use App\Petkit\DeviceStates;
+use Carbon\Carbon;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 
@@ -215,13 +216,25 @@ trait HandlesFeederSchedule
                 return;
             }
 
-            History::create([
+            $history = new History([
                 'messageId' => $messageId,
                 'pet_id' => null,
                 'type' => $type,
                 'parameters' => $content,
                 'device_id' => $this->device->id,
             ]);
+
+            // Date the row by when the feed actually happened, not by when
+            // the message reached us. The device queues feed_over until it
+            // is acked and may deliver it long after the fact (e.g. a backlog
+            // flushed after a reconnect); stamping it with now() would count
+            // old feeds in today's statistics.
+            $happenedAt = (int) ($content['start_time'] ?? $content['completed_at'] ?? 0);
+            if ($happenedAt > 0) {
+                $history->created_at = Carbon::createFromTimestamp($happenedAt);
+            }
+
+            $history->save();
 
             return;
         }
