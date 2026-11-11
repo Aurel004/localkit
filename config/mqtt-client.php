@@ -156,6 +156,12 @@ return [
             // All of these settings are entirely optional and have sane defaults.
             'connection_settings' => [
 
+                // Large payloads (the camera snapshot, ~200 KB) need a blocking
+                // socket: non-blocking, a publish the socket doesn't take in one
+                // write fails and the broker drops the connection. Read by
+                // App\MQTT\ConnectionManager.
+                'use_blocking_socket' => true,
+
                 // The TLS settings used for the connection. Must match the specified port.
                 'tls' => [
                     'enabled' => env('HOMEASSISTANT_TLS_ENABLED', false),
@@ -216,13 +222,22 @@ return [
 
             // A specific client id to be used for the connection. If omitted,
             // a random client id will be generated for each new connection.
-            'client_id' => env('HOMEASSISTANT_CLIENT_ID').'_publisher_dev',
+            //
+            // Left random on purpose: several processes (localkit:listen,
+            // localkit:homeassistant, php-fpm workers) publish through this
+            // connection at the same time, and the broker drops the older of
+            // two connections that share a client id - each publish then
+            // kicked another process off, losing its message.
+            'client_id' => null,
 
             // Whether a clean session shall be used and requested by the client.
             // A clean session will let the broker forget about subscriptions and
             // queued messages when the client disconnects. Also, if available,
             // data of a previous session will be deleted when connecting.
-            'use_clean_session' => env('HOMEASSISTANT_CLEAN_SESSION', false),
+            //
+            // Always clean here: with a random client id, a persistent session
+            // would be left behind on the broker for every connection.
+            'use_clean_session' => true,
 
             // Whether logging shall be enabled. The default logger will be used
             // with the log level as configured.
@@ -239,6 +254,12 @@ return [
             // Additional settings used for the connection to the broker.
             // All of these settings are entirely optional and have sane defaults.
             'connection_settings' => [
+
+                // Large payloads (the camera snapshot, ~200 KB) need a blocking
+                // socket: non-blocking, a publish the socket doesn't take in one
+                // write fails and the broker drops the connection. Read by
+                // App\MQTT\ConnectionManager.
+                'use_blocking_socket' => true,
 
                 // The TLS settings used for the connection. Must match the specified port.
                 'tls' => [
@@ -281,7 +302,10 @@ return [
 
                 // Additional settings for the optional auto-reconnect. The delay between reconnect attempts is in seconds.
                 'auto_reconnect' => [
-                    'enabled' => env('HOMEASSISTANT_AUTO_RECONNECT_ENABLED', true),
+                    // Off: the client refuses auto-reconnect together with a
+                    // clean session, and this connection is opened and closed
+                    // around each publish anyway.
+                    'enabled' => false,
                     'max_reconnect_attempts' => env('HOMEASSISTANT_AUTO_RECONNECT_MAX_RECONNECT_ATTEMPTS', 3),
                     'delay_between_reconnect_attempts' => env('HOMEASSISTANT_AUTO_RECONNECT_DELAY_BETWEEN_RECONNECT_ATTEMPTS', 0),
                 ],

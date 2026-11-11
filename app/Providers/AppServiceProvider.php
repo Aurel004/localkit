@@ -18,7 +18,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Same binding as php-mqtt's service provider, with our subclass so
+        // connections can opt into a blocking socket (see App\MQTT\ConnectionManager).
+        $this->app->bind(\PhpMqtt\Client\ConnectionManager::class, function ($app) {
+            return new \App\MQTT\ConnectionManager($app, $app->make('config')->get('mqtt-client', []));
+        });
     }
 
     /**
