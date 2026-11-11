@@ -528,16 +528,16 @@ class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
         $action = $message->action ?? null;
         switch ($action) {
             case 'feed':
-                $amount1 = isset($message->amount1) ? (int)$message->amount1 : (isset($message->amount) ? (int)$message->amount : 1);
-                $amount2 = isset($message->amount2) ? (int)$message->amount2 : (isset($message->amount) ? (int)$message->amount : 1);
+                $amount1 = isset($message->amount1) ? (int)$message->amount1 : (isset($message->amount) ? (int)$message->amount : null);
+                $amount2 = isset($message->amount2) ? (int)$message->amount2 : (isset($message->amount) ? (int)$message->amount : null);
                 $this->startFeeding($this->getDevice(), $amount1, $amount2);
                 break;
             case 'feed_hopper_1':
-                $amount1 = isset($message->amount) ? (int)$message->amount : (isset($message->amount1) ? (int)$message->amount1 : 1);
+                $amount1 = isset($message->amount1) ? (int)$message->amount1 : (isset($message->amount) ? (int)$message->amount : 1);
                 $this->startFeeding($this->getDevice(), $amount1, 0);
                 break;
             case 'feed_hopper_2':
-                $amount2 = isset($message->amount) ? (int)$message->amount : (isset($message->amount2) ? (int)$message->amount2 : 1);
+                $amount2 = isset($message->amount2) ? (int)$message->amount2 : (isset($message->amount) ? (int)$message->amount : 1);
                 $this->startFeeding($this->getDevice(), 0, $amount2);
                 break;
             case 'snapshot':
