@@ -164,21 +164,16 @@ class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
                 $content = json_decode($message?->params?->content ?? '{}', true) ?? [];
                 $eventId = $message?->params?->event_id ?? null;
 
-                if ($eventId) {
-                    $history = History::where('messageId', $eventId)->first();
-                    if ($history) {
-                        $history->update([
-                            'parameters' => array_merge((array) ($history->parameters ?? []), (array) $content),
-                        ]);
-                    } else {
-                        History::create([
-                            'messageId' => $eventId,
-                            'pet_id' => null,
-                            'type' => DeviceStates::WORKING->value,
-                            'parameters' => $content,
-                            'device_id' => $device->id,
-                        ]);
-                    }
+                if ($eventId !== null) {
+                    $existing = History::where('messageId', $eventId)->first();
+                    $parameters = $existing ? array_merge((array)($existing->parameters ?? []), $content) : $content;
+
+                    History::updateOrCreate(['messageId' => $eventId], [
+                        'pet_id' => null,
+                        'type' => DeviceStates::WORKING->value,
+                        'parameters' => $parameters,
+                        'device_id' => $device->id,
+                    ]);
                 }
 
                 $this->parseState($device, $message, DeviceStates::WORKING->value);
@@ -284,10 +279,20 @@ class Device implements DeviceDefinition, Snapshot, BluetoothProxyInterface
                 ->first();
         }
 
-        if ($history === null && $type === DeviceStates::WORKING->value) {
+        // Last-resort match: a WORKING row started within 3 minutes of this
+        // feed. Anchored on the feed's own time (start_time/completed_at),
+        // not on now(): a feed_over can reach us long after the fact (the
+        // device queues it until acked and flushes the backlog on reconnect),
+        // and anchored on now() every unmatched old feed of such a backlog
+        // got merged into the first row created during the flush.
+        $happenedAt = (int) ($content['start_time'] ?? $content['completed_at'] ?? 0);
+        if ($history === null && $type === DeviceStates::WORKING->value && $happenedAt > 0) {
             $history = History::where('device_id', $this->device->id)
                 ->where('type', DeviceStates::WORKING->value)
-                ->where('created_at', '>=', now()->subMinutes(3))
+                ->whereBetween('created_at', [
+                    Carbon::createFromTimestamp($happenedAt - 180, config('app.timezone')),
+                    Carbon::createFromTimestamp($happenedAt + 180, config('app.timezone')),
+                ])
                 ->latest()
                 ->first();
         }

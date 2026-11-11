@@ -2,11 +2,12 @@
 
 namespace App\MQTT;
 
-use App\Helpers\MQTTTopic;
 use App\Http\Resources\MQTT\SuccessResource;
+use Illuminate\Support\Facades\Log;
 
 class GenericReply
 {
+
     public static function reply(string $topic, mixed $message): AnswerDTO
     {
         return new AnswerDTO(
